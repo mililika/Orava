@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import install_routes
 from app.config import get_settings
@@ -13,4 +14,11 @@ if not settings.gemini_api_key or settings.gemini_api_key.get_secret_value().str
 
 engine = DataEngine(settings.data_dir, demo_mode=settings.demo_mode)
 app = FastAPI(title="Orava Analyst Demo", docs_url="/api/docs", redoc_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.orava_web_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 install_routes(app, settings, engine)

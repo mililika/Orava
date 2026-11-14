@@ -10,6 +10,7 @@ from app.llm.client import (
     FunctionResult,
     LLMClient,
 )
+from app.models import ChatMessage
 from app.privacy.minimize import safe_tool_payload
 from app.tools import load_tools  # noqa: F401
 from app.tools.registry import ToolRegistry, registry
@@ -28,8 +29,15 @@ class ChatService:
         self.client = client
         self.tools = tools
 
-    def ask(self, question: str) -> str:
-        conversation = [ConversationTurn(role="user", text=question)]
+    def ask(self, question: str, history: list[ChatMessage] | None = None) -> str:
+        conversation = [
+            ConversationTurn(
+                role="user" if item.role == "user" else "model",
+                text=item.content,
+            )
+            for item in (history or [])[-8:]
+        ]
+        conversation.append(ConversationTurn(role="user", text=question))
         try:
             for _ in range(self.settings.max_tool_iterations):
                 response = self.client.generate_content(

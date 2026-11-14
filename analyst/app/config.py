@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     max_output_tokens: int = Field(default=700, ge=100, le=4096)
     request_timeout_seconds: float = Field(default=30, gt=0, le=120)
     demo_mode: bool = True
+    orava_web_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:8081", "http://127.0.0.1:8081"]
+    )
 
     @field_validator("gemini_model")
     @classmethod

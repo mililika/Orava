@@ -1,6 +1,6 @@
 # Orava Analyst Demo
 
-A separate local analyst demo for exploring Junction challenge data. It is not the customer-facing Orava app and does not connect to live bank systems. The app uses Python, FastAPI, DuckDB, and the official Google Gen AI SDK, configured for a GCP Gemini Enterprise Agent Platform Express Mode key. The existing repository is an Expo mobile app, while this workload needs typed HTTP routes and read-only analytical queries over large CSVs. The web UI is served by the same local FastAPI process.
+A local-only API service for the Historical Analyst screen inside Orava. It does not connect to live bank systems. FastAPI and DuckDB query the Junction CSVs; the official Google Gen AI SDK sends bounded results to Gemini using a GCP Gemini Enterprise Agent Platform Express Mode key. The customer-facing UI lives in `mobile/src/screens/AnalystScreen.tsx` and uses the Orava app's existing components and theme.
 
 ## Run
 
@@ -13,7 +13,9 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Create an API key for [Gemini Enterprise Agent Platform Express Mode](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/start/express-mode/express-mode-api-quickstart) in Google Cloud, then replace `GEMINI_API_KEY=replace-me` in `.env`. Google currently marks Express Mode as Preview. Startup fails with a clear message when the key is absent or still the placeholder. Never put the key in the web client. This uses the GCP-managed Express Mode key, not a Gemini Developer API (AI Studio) key and not an API key for the standard ADC-authenticated Vertex AI endpoint. The example points `DATA_DIR` to the inspected upstream checkout at `../_source_inspection`; for a fresh checkout, put the CSVs in `analyst/data/` and change `DATA_DIR=./data`. Start with `uvicorn app.main:app --reload`. Visit http://127.0.0.1:8000. If no CSVs are present, the synthetic fixture demonstrates the app's layout and query tools.
+Create an API key for [Gemini Enterprise Agent Platform Express Mode](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/start/express-mode/express-mode-api-quickstart) in Google Cloud, then replace `GEMINI_API_KEY=replace-me` in `.env`. Google currently marks Express Mode as Preview. Startup fails with a clear message when the key is absent or still the placeholder. Never put the key in the web client. This uses the GCP-managed Express Mode key, not a Gemini Developer API (AI Studio) key and not an API key for the standard ADC-authenticated Vertex AI endpoint. The example points `DATA_DIR` to the inspected upstream checkout at `../_source_inspection`; for a fresh checkout, put the CSVs in `analyst/data/` and change `DATA_DIR=./data`. Start the API from this folder with `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`.
+
+In a second terminal at the repository root, copy `mobile/.env.example` to `mobile/.env`, set `EXPO_PUBLIC_ANALYST_ENABLED=true` and `EXPO_PUBLIC_ANALYST_API_URL=http://127.0.0.1:8000`, then run `npm run web`. Open Orava's Home screen and select **Historical analyst**. Keep the API bound to localhost for this unauthenticated demo. For a phone on another device, localhost will refer to that device; a reachable HTTPS backend with authentication is needed before exposing this service beyond the local preview.
 
 `GEMINI_MODEL` defaults to `gemini-3.8-flash`; set it to a model available to the GCP project if needed. Set `MAX_OUTPUT_TOKENS`, `REQUEST_TIMEOUT_SECONDS`, and `MAX_TOOL_ITERATIONS` to bound output, requests, and the manual function-calling loop.
 
@@ -32,11 +34,12 @@ The app expects source names as listed in the upstream README. It preserves colu
 | `app/tools/` | Validated tool contracts, analytics, one self-registering registry |
 | `app/privacy/` | Identifier masking and model payload minimization |
 | `app/llm/` | Google Gen AI client wrapper, Gemini schema translation, and bounded function-calling loop |
-| `app/api/` | Thin typed HTTP route |
-| `static/` | Local analyst chat UI; no API key or CSV access |
+| `app/api/` | Thin typed HTTP routes with Expo web CORS allowlist |
+| `mobile/src/screens/AnalystScreen.tsx` | Orava-native analyst UI with loading, error, retry, and conversation states |
+| `mobile/src/lib/analyst.ts` | Typed client for status and chat requests; no API key or CSV access |
 
 ```text
-Browser → FastAPI route → Chat service → Gemini adapter
+Orava app → FastAPI route → Chat service → Gemini adapter
                                   ↘ validated tools → DuckDB → local CSVs
 ```
 
@@ -46,7 +49,7 @@ Available tools: period-over-period spending change (same-length adjacent ranges
 
 ## Privacy and limits
 
-This is a single-user local demo with no authentication or authorization. Bind it only to localhost. Do not expose it to a network or use it to look up another person's records. It is not production-ready. No customer-level transaction detail, age, postal code, or free-text notes are placed in routine logs or model requests. Historical mortgage outcomes are descriptive; the app does not make or recommend credit, eligibility, approval, rejection, or pricing decisions. Historical data is not live account data. If a source is absent or incomplete, dependent answers state that gap rather than fabricate values.
+This is a single-user local demo with no authentication or authorization. The mobile flag controls whether the screen is visible; it is not an access-control boundary. Bind the API only to localhost. Do not expose it to a network or use it to look up another person's records. It is not production-ready. No customer-level transaction detail, age, postal code, or free-text notes are placed in routine logs or model requests. Historical mortgage outcomes are descriptive; the app does not make or recommend credit, eligibility, approval, rejection, or pricing decisions. Historical data is not live account data. If a source is absent or incomplete, dependent answers state that gap rather than fabricate values.
 
 ## Tests and checks
 

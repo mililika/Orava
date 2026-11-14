@@ -137,8 +137,9 @@ Postgres `transactions` table, run in Docker on the data owner's machine. The pr
 does not use it yet; the demo numbers in `demoAccount.ts` are shaped like the dataset's
 average customer.
 
-## Internal analyst demo
+## Historical analyst
 
-The standalone Gemini-based historical data analyst lives in [`analyst/`](analyst/README.md). It
-is intentionally separate from the customer-facing mobile prototype and runs locally with FastAPI
-and DuckDB. See its README for setup, data status, privacy limits, and the synthetic fixture.
+The Gemini-based Historical Analyst is available inside Orava's Home screen when the internal
+analyst flag is enabled. Its Expo UI is part of `mobile/`; the FastAPI/DuckDB query service and
+setup instructions live in [`analyst/`](analyst/README.md). The API key and CSVs stay on the server.
+This local demo has no authentication, so keep it bound to localhost and disabled in public builds.

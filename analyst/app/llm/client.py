@@ -108,8 +108,10 @@ class GeminiClient:
 def _to_sdk_content(turn: ConversationTurn) -> types.Content:
     if turn.role == "user":
         return types.Content(role="user", parts=[types.Part.from_text(text=turn.text or "")])
-    if turn.role == "model" and turn.provider_content is not None:
-        return turn.provider_content
+    if turn.role == "model":
+        if turn.provider_content is not None:
+            return turn.provider_content
+        return types.Content(role="model", parts=[types.Part.from_text(text=turn.text or "")])
     parts = [
         types.Part.from_function_response(name=item.name, response=item.response)
         for item in turn.function_results
