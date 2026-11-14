@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orava Analyst</title>
+    <style>
+      :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #193d30; background: #eaf3ed; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+      main { width: min(760px, 100%); background: white; border-radius: 24px; padding: 28px; box-shadow: 0 12px 42px #183b3018; }
+      h1 { margin: 0 0 6px; font-size: 25px; } p { line-height: 1.5; }
+      .sub { color: #62776c; margin-top: 0; }
+      #status { border-radius: 12px; padding: 12px 14px; background: #eff7f0; font-size: 13px; margin: 18px 0; }
+      #chat { min-height: 270px; max-height: 48vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 8px 0 18px; }
+      .bubble { max-width: 88%; padding: 11px 14px; border-radius: 16px; line-height: 1.5; white-space: pre-wrap; }
+      .assistant { background: #edf7ee; align-self: flex-start; }
+      .user { color: white; background: #247449; align-self: flex-end; }
+      form { display: flex; gap: 10px; }
+      input { flex: 1; min-width: 0; border: 1px solid #cad8cf; border-radius: 999px; padding: 13px 16px; font: inherit; }
+      button { border: 0; border-radius: 999px; color: white; background: #247449; padding: 0 20px; font: inherit; font-weight: 650; cursor: pointer; }
+      button:disabled { opacity: .55; cursor: wait; }
+      .fine { font-size: 12px; color: #6e7f75; margin-bottom: 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Orava Analyst</h1>
+      <p class="sub">Internal historical data demo · English and Finnish questions</p>
+      <div id="status" role="status">Checking local data…</div>
+      <section id="chat" aria-live="polite">
+        <div class="bubble assistant">Ask about spending, a mortgage application timeline, or historical outcome counts. Include a date range for spending questions.</div>
+      </section>
+      <form id="form">
+        <input id="question" maxlength="2000" autocomplete="off" placeholder="e.g. Compare grocery spending in February 2026" aria-label="Question" />
+        <button id="send">Ask</button>
+      </form>
+      <p class="fine">Local demo only. No authentication. Historical mortgage summaries are descriptive and do not provide lending advice.</p>
+    </main>
+    <script>
+      const chat = document.querySelector('#chat');
+      const statusBox = document.querySelector('#status');
+      const form = document.querySelector('#form');
+      const input = document.querySelector('#question');
+      const button = document.querySelector('#send');
+      function bubble(text, kind) {
+        const el = document.createElement('div');
+        el.className = `bubble ${kind}`;
+        el.textContent = text;
+        chat.append(el);
+        chat.scrollTop = chat.scrollHeight;
+      }
+      fetch('/api/status').then(r => r.json()).then(s => {
+        statusBox.textContent = Object.entries(s.data).map(([k,v]) => `${k}: ${v}`).join(' · ') + (s.chat_configured ? '' : ' · GEMINI_API_KEY missing: add it to analyst/.env');
+      }).catch(() => statusBox.textContent = 'Could not read local data status.');
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+        bubble(question, 'user');
+        input.value = '';
+        button.disabled = true;
+        try {
+          const response = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question}) });
+          const body = await response.json();
+          bubble(response.ok ? body.answer : body.detail || 'The request failed.', 'assistant');
+        } catch {
+          bubble('The local service could not be reached.', 'assistant');
+        } finally { button.disabled = false; input.focus(); }
+      });
+    </script>
+  </body>
+</html>

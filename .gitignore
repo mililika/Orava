@@ -1,4 +1,5 @@
 node_modules/
+/_source_inspection/
 .env
 .DS_Store
 .idea/

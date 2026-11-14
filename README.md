@@ -136,3 +136,9 @@ The real challenge data (3.6M transactions, 5,100 customers, Oct 2024 – Sep 20
 Postgres `transactions` table, run in Docker on the data owner's machine. The prototype
 does not use it yet; the demo numbers in `demoAccount.ts` are shaped like the dataset's
 average customer.
+
+## Internal analyst demo
+
+The standalone Gemini-based historical data analyst lives in [`analyst/`](analyst/README.md). It
+is intentionally separate from the customer-facing mobile prototype and runs locally with FastAPI
+and DuckDB. See its README for setup, data status, privacy limits, and the synthetic fixture.
