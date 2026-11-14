@@ -9,6 +9,8 @@ import type { HealthReport } from './health';
 const eur = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-GB')}`;
 
 export const SUGGESTIONS = [
+  'How much can I spend on presents?',
+  'What can I cut next month to save?',
   'How is this month going?',
   'What can I spend this week?',
   'Why is my score like this?',
@@ -63,7 +65,8 @@ export function answer(q: string, r: HealthReport): string {
   }
   if (has('this month', 'pace', 'usual', 'watch', 'overspend')) {
     const w = r.pace.watch;
-    return `Your daily limit is ${eur(r.pace.dailyLimit)}: income minus housing and utilities, spread over the month. So far you spend ${eur(r.pace.dailySoFar)} a day${r.pace.dailySoFar <= r.pace.dailyLimit ? ', within it.' : ', above it.'}${w ? ` The category most over its usual is ${categoryInfo(w.category).name.toLowerCase()}: ${eur(w.spent)} against a usual ${eur(w.usual)}.` : ''}`;
+    const tile = r.stats.find((x) => x.key === 'month');
+    return `${tile ? `${tile.label}: ${tile.value} (${tile.sub}).` : ''} So far you spend ${eur(r.pace.dailySoFar)} a day.${w ? ` The category most over its usual is ${categoryInfo(w.category).name.toLowerCase()}: ${eur(w.spent)} against a usual ${eur(w.usual)}.` : ''}`;
   }
   if (has('safe', 'spend this', 'week', 'afford', 'budget', 'left') && !has('left over')) {
     const days = Math.min(7, r.safe.daysLeft);

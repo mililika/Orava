@@ -1,33 +1,35 @@
 // Orava's own section on the home screen: the animated squirrel, its mood, the health score and
 // what it has to say. The mood follows the financial score. Tap the card to open Money health.
-// A reaction with action buttons (e.g. after a suspicious payment) shows its buttons here too.
+// What Orava says is Gemini's read of the month (orava/overview.ts), refreshed when transactions
+// change.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Mascot } from '../orava/Mascot';
 import { MOODS } from '../orava/moods';
+import type { Overview } from '../orava/overview';
 import type { Mood } from '../orava/types';
 import { colors, radius } from '../theme';
 import { Icon } from './Icon';
-
-export interface OravaAction {
-  label: string;
-  primary?: boolean;
-  onPress: () => void;
-}
+import { OravaInsight } from './OravaInsight';
 
 export function OravaCard({
   mood,
   score,
   message,
-  actions,
+  thinking,
+  insight,
   onOpen,
 }: {
   mood: Mood;
   /** Null when there is no score (not the customer's main bank). */
   score: number | null;
-  message: string;
-  actions?: OravaAction[];
+  /** Gemini's summary of the month; empty while it loads. */
+  message?: string;
+  /** Gemini is still writing the overview. */
+  thinking?: boolean;
+  /** Gemini's good / watch lines for the month, under the message. */
+  insight?: Overview | null;
   onOpen: () => void;
 }) {
   const m = MOODS[mood];
@@ -48,32 +50,17 @@ export function OravaCard({
               {score == null ? 'Partial view' : `${score}/100`}
             </Text>
           </View>
-          {!actions?.length && (
-            <View style={s.hint}>
-              <Text style={s.hintText}>Money health</Text>
-              <Icon name="chevron" size={16} color={colors.green} />
-            </View>
-          )}
-        </View>
-        <Text style={s.message}>{message}</Text>
-        {actions?.length ? (
-          <View style={s.actions}>
-            {actions.map((a) => (
-              <Pressable
-                key={a.label}
-                onPress={a.onPress}
-                role="button"
-                style={({ pressed }) => [
-                  s.btn,
-                  a.primary && s.btnPrimary,
-                  pressed && { opacity: 0.75 },
-                ]}
-              >
-                <Text style={[s.btnText, a.primary && { color: '#fff' }]}>{a.label}</Text>
-              </Pressable>
-            ))}
+          <View style={s.hint}>
+            <Text style={s.hintText}>Money health</Text>
+            <Icon name="chevron" size={16} color={colors.green} />
           </View>
+        </View>
+        {message ? (
+          <Text style={s.message}>{message}</Text>
+        ) : thinking ? (
+          <Text style={[s.message, s.thinking]}>Orava is thinking…</Text>
         ) : null}
+        {insight ? <OravaInsight overview={insight} /> : null}
       </View>
     </Pressable>
   );
@@ -96,17 +83,7 @@ const s = StyleSheet.create({
   score: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   scoreText: { fontSize: 12, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 19, color: colors.ink },
+  thinking: { color: colors.ink2, fontStyle: 'italic' },
   hint: { flexDirection: 'row', alignItems: 'center' },
   hintText: { fontSize: 13, fontWeight: '700', color: colors.green },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  btn: {
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.green,
-    backgroundColor: '#fff',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  btnPrimary: { backgroundColor: colors.green },
-  btnText: { fontSize: 13, fontWeight: '600', color: colors.green },
 });

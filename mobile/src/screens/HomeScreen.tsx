@@ -2,7 +2,8 @@
 
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { OravaCard, type OravaAction } from '../components/OravaCard';
+import { OravaCard } from '../components/OravaCard';
+import type { Overview } from '../orava/overview';
 import type { Mood } from '../orava/types';
 import { TransactionList } from '../components/TransactionList';
 import { SectionHead } from '../components/ui';
@@ -13,7 +14,13 @@ interface Props {
   username: string;
   balance: number;
   txs: Transaction[];
-  orava: { mood: Mood; score: number | null; message: string; actions?: OravaAction[] };
+  orava: {
+    mood: Mood;
+    score: number | null;
+    message?: string;
+    thinking?: boolean;
+    insight?: Overview | null;
+  };
   onOpenHealth: () => void;
   onAdd: () => void;
   onDelete: (t: Transaction) => void;

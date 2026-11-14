@@ -82,7 +82,8 @@ mobile/
       recurring.ts              regular payments detection
       ahead.ts                  coming up: what the next 3 months leave to spend (keep aside / free)
       growth.ts                 idle money (the Idle money tile and the chat)
-      scenarios.ts              ← instant reactions to one new transaction (pure)
+      coach.ts                  ← Gemini coach prompt + the user's data as context (pure)
+      overview.ts               ← Gemini's month overview for the Orava card, cached per month
       types.ts                  the contract between data and Orava
       Mascot.tsx                the squirrel in 4 moods (SVG + animations)
       moods.ts                  mood names and colors
@@ -149,18 +150,15 @@ working?") gives a 10-year comparison in today's euros: current account 0.37%, s
 2.57% (Bank of Finland), world equities 3.5% after inflation (UBS Yearbook 2025), inflation 2.5%
 (Statistics Finland).
 
-### Instant reactions (hardcoded for now, `src/orava/scenarios.ts`)
+### Orava's words come from Gemini (`src/orava/overview.ts`, `src/orava/coach.ts`)
 
-When you add a transaction, Orava may react to it right away (later this becomes an AI call):
-
-| Scenario        | Trigger                                             | Orava                                |
-| --------------- | --------------------------------------------------- | ------------------------------------ |
-| Big restaurant  | one Restaurants payment ≥ 5% of monthly income      | worried, offers a gentle limit       |
-| Unusual payment | any other non-fixed payment ≥ 20% of monthly income | alert, "Was this you?" / freeze card |
-| Coffee streak   | 3rd coffee within 7 days                            | worried, shows the monthly pace      |
-| Extra income    | income that is not salary                           | happy, suggests saving a quarter     |
-
-Try it in the demo: add three Coffee payments, a €260 Restaurants payment, or €800 Lifestyle.
+The Orava card on Home and the Money health hero show Gemini's read of the month: one short
+sentence, a "Good" line and a "Watch" line. There are no hardcoded reactions: every time a
+transaction is added or removed, Gemini looks at the whole state again (score, tiles, where money
+goes, the last 6 months of transactions, peers and Finnish benchmarks). Overviews are cached per
+month, so a month is only asked again when its transactions change; the 10 newest months are
+kept. Ask Orava (the chat at the bottom of Money health) streams its answers from the same
+context. Set `EXPO_PUBLIC_GEMINI_API_KEY` in `mobile/.env` (see `.env.example`).
 
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.
 

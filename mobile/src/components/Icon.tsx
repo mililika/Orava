@@ -20,6 +20,7 @@ const PATHS = {
   pulse: 'M3 12h4l2-5 4 10 2-5h6',
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5h.01',
   down: 'M6 9l6 6 6-6',
+  up: 'M6 15l6-6 6 6',
   repeat: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
   calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   people:

@@ -19,6 +19,7 @@ import { MonthStepper } from '../components/History';
 import { Icon } from '../components/Icon';
 import { MonthSplit } from '../components/MonthSplit';
 import { OravaChat } from '../components/OravaChat';
+import { OravaInsight } from '../components/OravaInsight';
 import { RecurringCard } from '../components/RecurringCard';
 import { ScoreInfo } from '../components/ScoreInfo';
 import { Card } from '../components/ui';
@@ -27,20 +28,37 @@ import { buildHealth, type HealthReport, type Stat, type Tone } from '../orava/h
 import { monthRange } from '../orava/history';
 import { Mascot } from '../orava/Mascot';
 import { MOODS } from '../orava/moods';
+import type { Mood } from '../orava/types';
+import { useOverview } from '../orava/overview';
 import { colors, radius } from '../theme';
 
-/** Tag colours: green = good, gray = neutral, orange = warning, red = big problem. */
-const TONE: Record<Tone, { bg: string; fg: string }> = {
-  good: { bg: '#e0f0e4', fg: '#1b6a37' },
-  neutral: { bg: '#eceeec', fg: '#4a4f4b' },
-  warn: { bg: '#fdebd0', fg: '#7a4a05' },
-  bad: { bg: '#fde0dd', fg: '#a3201a' },
+/**
+ * Colour of the big number on the three key-number cards (white cards): green = good,
+ * ink = neutral, orange = warning, red = big problem. Dark enough to read on white; the verdict
+ * is also read out, so colour isn't the only signal.
+ */
+const VALUE_COLOR: Record<Tone, string> = {
+  good: '#1f7a43',
+  neutral: colors.ink,
+  warn: '#b45f12',
+  bad: '#c0322b',
+};
+
+/** Score number colour per mood: the squirrel design colours, a touch darker where needed to read on white. */
+const SCORE_COLOR: Record<Mood, string> = {
+  happy: '#2E9B5F',
+  okay: '#B07818',
+  worried: '#C4561D',
+  alert: '#C8323A',
 };
 
 export function HealthScreen({
+  user,
   report: latest,
   onBack,
 }: {
+  /** Username: the AI overview cache is per user. */
+  user: string;
   report: HealthReport;
   onBack: () => void;
 }) {
@@ -58,6 +76,7 @@ export function HealthScreen({
     return buildHealth(txs, latest.balance - after, { finished: true });
   }, [latest, month, last]);
   const { orava, score } = report;
+  const { overview, loading } = useOverview(user, month, report, month >= last);
   const mood = MOODS[orava.mood];
 
   return (
@@ -73,7 +92,12 @@ export function HealthScreen({
             <View style={s.heroText}>
               {report.partial ? <Text style={s.variant}>Spending account score</Text> : null}
               <View style={s.scoreRow}>
-                <Text style={s.score}>{score.score}</Text>
+                <Text
+                  style={[s.score, { color: SCORE_COLOR[orava.mood] }]}
+                  accessibilityLabel={`Score ${score.score} out of 100, ${mood.name}`}
+                >
+                  {score.score}
+                </Text>
                 <Text style={s.scoreOf}>/ 100</Text>
                 <Pressable
                   onPress={() => setInfo((v) => !v)}
@@ -95,10 +119,7 @@ export function HealthScreen({
                   />
                 </Pressable>
               </View>
-              <View style={[s.moodPill, { backgroundColor: mood.bg }]}>
-                <Text style={[s.moodText, { color: mood.fg }]}>{mood.name}</Text>
-              </View>
-              <Text style={s.message}>{orava.message}</Text>
+              {overview?.summary ? <Text style={s.message}>{overview.summary}</Text> : null}
               {report.partial ? (
                 <Text style={s.note}>
                   Salary moves to another bank, so this account is scored on spending.
@@ -106,6 +127,13 @@ export function HealthScreen({
               ) : null}
             </View>
           </View>
+          {overview ? (
+            <View style={s.insight}>
+              <OravaInsight overview={overview} />
+            </View>
+          ) : loading ? (
+            <Text style={s.loading}>Orava is thinking…</Text>
+          ) : null}
           {info ? <ScoreInfo score={score} /> : null}
         </Card>
 
@@ -143,14 +171,6 @@ function Section({ title }: { title: string }) {
   return <Text style={s.section}>{title}</Text>;
 }
 
-function Tag({ text, tone }: { text: string; tone: Tone }) {
-  return (
-    <View style={[s.tag, { backgroundColor: TONE[tone].bg }]}>
-      <Text style={[s.tagText, { color: TONE[tone].fg }]}>{text}</Text>
-    </View>
-  );
-}
-
 function StatCard({ stat }: { stat: Stat }) {
   return (
     <View
@@ -161,13 +181,16 @@ function StatCard({ stat }: { stat: Stat }) {
       <Text style={s.statLabel} numberOfLines={1}>
         {stat.label}
       </Text>
-      <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>
+      <Text
+        style={[s.statValue, { color: VALUE_COLOR[stat.tag.tone] }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {stat.value}
       </Text>
       <Text style={s.statSub} numberOfLines={1}>
         {stat.sub}
       </Text>
-      <Tag text={stat.tag.text} tone={stat.tag.tone} />
     </View>
   );
 }
@@ -191,17 +214,10 @@ const s = StyleSheet.create({
     backgroundColor: colors.mint,
   },
   infoOn: { backgroundColor: colors.green },
-  moodPill: {
-    alignSelf: 'flex-start',
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  moodText: { fontSize: 12.5, fontWeight: '700' },
   message: { fontSize: 15, lineHeight: 21, color: colors.ink },
   note: { fontSize: 12.5, lineHeight: 17, color: colors.ink2 },
-  tag: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  tagText: { fontSize: 12, fontWeight: '700' },
+  insight: { marginTop: 10 },
+  loading: { marginTop: 8, fontSize: 12.5, fontStyle: 'italic', color: colors.ink2 },
   grid: { flexDirection: 'row', gap: 8 },
   stat: {
     flex: 1,
@@ -213,7 +229,7 @@ const s = StyleSheet.create({
   },
   statLabel: { fontSize: 12.5, lineHeight: 16, color: colors.ink2 },
   statValue: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: colors.ink },
-  statSub: { fontSize: 12, lineHeight: 16, color: colors.faint, marginBottom: 6 },
+  statSub: { fontSize: 12, lineHeight: 16, color: colors.faint },
   section: {
     fontSize: 19,
     fontWeight: '700',

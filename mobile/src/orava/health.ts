@@ -184,18 +184,38 @@ export function buildHealth(
   const stayShare = p.income > 0 ? (p.income - p.swept) / p.income : 0;
   const signed = (n: number) => `${n < 0 ? '−' : '+'}${money(n)}`;
 
-  const monthStat: Stat = {
-    key: 'month',
-    label: 'Daily limit',
-    value: money(pace.dailyLimit),
-    sub: `${money(pace.dailySoFar)}/day so far`,
-    tag:
-      pace.dailySoFar <= pace.dailyLimit
-        ? { text: 'Good', tone: 'good' }
-        : pace.dailySoFar <= pace.dailyLimit * 1.1
-          ? { text: 'High', tone: 'warn' }
-          : { text: 'Over', tone: 'bad' },
-  };
+  // This month: what can still go out each day from tomorrow (safe to spend ÷ days after today),
+  // the same number Ask Orava uses. A finished month: what went out per day against the limit.
+  const restDays = Math.max(1, safe.daysLeft - 1);
+  const perDayLeft = Math.max(0, safe.left) / restDays;
+  const monthStat: Stat = finished
+    ? {
+        key: 'month',
+        label: 'Spent per day',
+        value: money(pace.dailySoFar),
+        sub: `limit ${money(pace.dailyLimit)}/day`,
+        tag:
+          pace.dailySoFar <= pace.dailyLimit
+            ? { text: 'Good', tone: 'good' }
+            : pace.dailySoFar <= pace.dailyLimit * 1.1
+              ? { text: 'High', tone: 'warn' }
+              : { text: 'Over', tone: 'bad' },
+      }
+    : {
+        key: 'month',
+        label: 'Left per day',
+        value: money(perDayLeft),
+        sub:
+          safe.left < 0
+            ? `${money(safe.left)} over`
+            : `${money(safe.left)} for ${restDays} day${restDays === 1 ? '' : 's'}`,
+        tag:
+          safe.left < 0
+            ? { text: 'Over', tone: 'bad' }
+            : perDayLeft < pace.dailySoFar
+              ? { text: 'Tight', tone: 'warn' }
+              : { text: 'Good', tone: 'good' },
+      };
   const watchStat: Stat = pace.watch
     ? {
         key: 'watch',
@@ -238,9 +258,9 @@ export function buildHealth(
         monthStat,
         {
           key: 'kept',
-          label: 'Left over',
+          label: 'Avg left over',
           value: `${p.income - p.spending < 0 ? '−' : ''}${money(p.income - p.spending)}`,
-          sub: '3-month avg',
+          sub: 'a month, last 3',
           tag:
             kept!.value < 0
               ? { text: 'Over', tone: 'bad' }

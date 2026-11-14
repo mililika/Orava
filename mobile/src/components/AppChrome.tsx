@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Mascot } from '../orava/Mascot';
+import { MOODS } from '../orava/moods';
 import type { Mood } from '../orava/types';
 import { colors } from '../theme';
 import { Icon, type IconName } from './Icon';
@@ -17,7 +18,10 @@ export function AppHeader({
   title?: string;
   left?: { icon: IconName; label: string; onPress: () => void };
   right?: ReactNode;
-  /** Small squirrel button that opens Money health from any screen. */
+  /**
+   * Small squirrel button that opens Money health from any screen. Its round border takes the
+   * mood colour: green doing great, amber steady, orange heads up, red needs attention.
+   */
   orava?: { mood: Mood; onPress: () => void };
 }) {
   return (
@@ -37,9 +41,16 @@ export function AppHeader({
             onPress={orava.onPress}
             style={s.oravaBtn}
             accessibilityRole="button"
-            accessibilityLabel="Open Money health"
+            accessibilityLabel={`Open Money health. Orava: ${MOODS[orava.mood].name}`}
           >
-            <Mascot mood={orava.mood} size={34} ground={false} />
+            <View
+              style={[
+                s.avatar,
+                { borderColor: MOODS[orava.mood].color, backgroundColor: MOODS[orava.mood].bg },
+              ]}
+            >
+              <Mascot mood={orava.mood} size={30} ground={false} />
+            </View>
           </Pressable>
         )}
       </View>
@@ -94,6 +105,15 @@ const s = StyleSheet.create({
   side: { width: 88 },
   title: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: colors.ink },
   oravaBtn: { height: 44, paddingRight: 12, alignItems: 'flex-end', justifyContent: 'center' },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   nav: {
     height: 66,
