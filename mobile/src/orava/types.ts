@@ -31,4 +31,17 @@ export interface OravaState {
   /** Why this mood was picked, in plain words. */
   reasons: string[];
   savingRate: number;
+  /** How the score was put together, for the (i) explanation on Money health. */
+  breakdown: ScoreBreakdown;
+}
+
+export interface ScoreBreakdown {
+  /** Everyone starts here. */
+  base: number;
+  /** Points from the share of income kept (negative when spending more than income). */
+  saving: number;
+  /** Points lost because everyday slips are above usual (0 or negative). */
+  slips: number;
+  /** Everyday slips vs usual, in % (+30 = 30% above usual). */
+  slipsOverPct: number;
 }
