@@ -1,7 +1,7 @@
 // Small building blocks shared by every card.
 
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, radius } from '../theme';
 
@@ -13,7 +13,7 @@ export function Card({
 }: {
   children: ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   label?: string;
 }) {
   if (!onPress) return <View style={[s.card, style]}>{children}</View>;

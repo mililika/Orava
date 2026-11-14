@@ -2,14 +2,34 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Mascot } from '../orava/Mascot';
+import { MOODS } from '../orava/moods';
+import type { Mood } from '../orava/types';
 import { colors } from '../theme';
 import { Icon, type IconName } from './Icon';
 
-export function AppHeader({ onLock, onChat }: { onLock: () => void; onChat: () => void }) {
+export function AppHeader({
+  onLock,
+  onChat,
+  onDemo,
+}: {
+  onLock: () => void;
+  onChat: () => void;
+  /** Opens the demo panel (prototype only). */
+  onDemo: () => void;
+}) {
   return (
     <View style={s.header}>
       <Pressable onPress={onLock} style={s.iconBtn} accessibilityLabel="Lock app">
         <Icon name="lock" />
+      </Pressable>
+      <Pressable
+        onPress={onDemo}
+        style={({ pressed }) => [s.demo, pressed && { opacity: 0.7 }]}
+        role="button"
+        accessibilityLabel="Open demo controls"
+      >
+        <Text style={s.demoText}>Demo</Text>
       </Pressable>
       <Pressable onPress={onChat} style={s.iconBtn} accessibilityLabel="Messages">
         <Icon name="chat" />
@@ -18,22 +38,36 @@ export function AppHeader({ onLock, onChat }: { onLock: () => void; onChat: () =
   );
 }
 
-export type Tab = 'home' | 'etukortti' | 'pay' | 'sbank' | 'me';
+export type Tab = 'home' | 'etukortti' | 'orava' | 'sbank' | 'me';
 
-const TABS: { key: Tab; label: string; icon: IconName }[] = [
+const TABS: { key: Tab; label: string; icon?: IconName }[] = [
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'etukortti', label: 'S-Etukortti', icon: 'card' },
-  { key: 'pay', label: 'Pay', icon: 'plus' },
+  { key: 'orava', label: 'Orava' },
   { key: 'sbank', label: 'S-Bank', icon: 'wallet' },
   { key: 'me', label: 'Me', icon: 'person' },
 ];
 
-export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+/** The five-tab bar. The middle tab is Orava: a round button with the squirrel in its current mood. */
+export function BottomNav({
+  tab,
+  onChange,
+  mood,
+  badge,
+  lively = badge,
+}: {
+  tab: Tab;
+  onChange: (t: Tab) => void;
+  mood: Mood;
+  /** Show a red "1" on the Orava tab: Orava has something to tell you. */
+  badge: boolean;
+  /** Full animation on the tab squirrel. Defaults to `badge`. */
+  lively?: boolean;
+}) {
   return (
     <View style={s.nav}>
       {TABS.map((t) => {
         const on = t.key === tab;
-        const pay = t.key === 'pay';
         return (
           <Pressable
             key={t.key}
@@ -41,13 +75,23 @@ export function BottomNav({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => v
             style={s.navItem}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
+            accessibilityLabel={
+              t.key === 'orava'
+                ? `Orava, ${MOODS[mood].name}${badge ? ', 1 new message' : ''}`
+                : undefined
+            }
           >
-            {pay ? (
-              <View style={s.fab}>
-                <Icon name="plus" color="#fff" size={26} strokeWidth={2.4} />
-              </View>
-            ) : (
+            {t.icon ? (
               <Icon name={t.icon} color={on ? colors.green2 : '#5d635f'} />
+            ) : (
+              <View style={[s.fab, { borderColor: MOODS[mood].ring }]}>
+                <Mascot mood={mood} size={48} lively={lively} />
+                {badge && (
+                  <View style={s.badge}>
+                    <Text style={s.badgeText}>1</Text>
+                  </View>
+                )}
+              </View>
             )}
             <Text style={[s.navLabel, on && s.navLabelOn]}>{t.label}</Text>
           </Pressable>
@@ -69,6 +113,17 @@ const s = StyleSheet.create({
     borderBottomColor: '#eef2ee',
   },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  demo: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoText: { color: colors.green, fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   nav: {
     height: 66,
     backgroundColor: '#fff',
@@ -82,17 +137,28 @@ const s = StyleSheet.create({
   navLabel: { fontSize: 11, color: '#5d635f' },
   navLabelOn: { color: colors.ink, fontWeight: '600' },
   fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.green,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 3,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -26,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    marginTop: -30,
+    boxShadow: '0 4px 14px rgba(23,37,27,0.2)',
   },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#C4321F',
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
 });

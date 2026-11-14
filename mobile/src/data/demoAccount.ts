@@ -2,7 +2,7 @@
 // Later this file gets replaced by calls to the backend; nothing else needs to change,
 // as long as screens keep receiving `Transaction[]` and a `MonthSnapshot`.
 
-import type { MonthSnapshot } from '../orava/types';
+import type { Basket, MonthSnapshot } from '../orava/types';
 
 export interface Transaction {
   id: string;
@@ -60,15 +60,8 @@ export const SEPTEMBER: Transaction[] = [
   tx('2026-09-01', 'Housing', 'Rent', -1088.0, 'housing_payment'),
 ];
 
-/** Buttons in the demo add these transactions on top of the list. */
-export const DEMO_ACTIONS = {
-  eatOut: () => tx('2026-09-29', 'Restaurants', 'Takeaway', -45),
-  jacket: () => tx('2026-09-29', 'Lifestyle', 'New jacket', -120),
-  sideGig: () => tx('2026-09-29', 'Other Income', 'Side gig', 400, 'other_income'),
-};
-
 /** Which Orava basket each category belongs to. */
-const BASKET: Record<string, keyof Omit<MonthSnapshot, 'balance' | 'everydaySlipsBaseline'>> = {
+const BASKET: Record<string, Basket> = {
   Salary: 'income',
   'Other Income': 'income',
   Housing: 'mustPayRegular',
@@ -82,6 +75,11 @@ const BASKET: Record<string, keyof Omit<MonthSnapshot, 'balance' | 'everydaySlip
   Lifestyle: 'everydaySlips',
   Entertainment: 'everydaySlips',
 };
+
+/** The Orava basket a category belongs to, if any. */
+export function basketOf(category: string) {
+  return BASKET[category];
+}
 
 export function balanceOf(txs: Transaction[]) {
   return txs.reduce((b, t) => b + t.amount, OPENING_BALANCE);
@@ -112,6 +110,11 @@ export function buildSnapshot(
   balance = balanceOf(txs),
   slipsBaseline = SLIPS_BASELINE,
 ): MonthSnapshot {
+  // "This week" = the last 7 days of data, ending on the newest transaction.
+  const latest = txs.reduce((d, t) => (t.date > d ? t.date : d), '');
+  const weekStart = latest ? shiftDays(latest, -6) : '';
+  const [y, m] = latest ? latest.split('-').map(Number) : [2026, 1];
+
   const s: MonthSnapshot = {
     balance,
     income: 0,
@@ -120,10 +123,25 @@ export function buildSnapshot(
     needs: 0,
     everydaySlips: 0,
     everydaySlipsBaseline: slipsBaseline,
+    slipsThisWeek: 0,
+    eatOutThisWeek: 0,
+    daysInMonth: new Date(Date.UTC(y, m, 0)).getUTCDate(),
   };
   for (const t of txs) {
     const key = BASKET[t.category];
-    if (key) s[key] += Math.abs(t.amount);
+    if (!key) continue;
+    s[key] += Math.abs(t.amount);
+    if (t.date >= weekStart && t.amount < 0) {
+      if (key === 'everydaySlips') s.slipsThisWeek += -t.amount;
+      if (t.category === 'Restaurants') s.eatOutThisWeek += 1;
+    }
   }
   return s;
+}
+
+/** A YYYY-MM-DD date moved by a number of days. */
+export function shiftDays(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
