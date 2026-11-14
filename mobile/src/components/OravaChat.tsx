@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { geminiConfigured, streamGemini, type ChatTurn } from '../lib/gemini';
+import { minutesUntil, RateLimitError } from '../lib/rateLimit';
 import { answer, SUGGESTIONS } from '../orava/chat';
 import { coachSystem, plainText } from '../orava/coach';
 import type { HealthReport } from '../orava/health';
@@ -28,7 +29,7 @@ interface Msg {
   text: string;
 }
 
-export function OravaChat({ report }: { report: HealthReport }) {
+export function OravaChat({ user, report }: { user: string; report: HealthReport }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
   const [focused, setFocused] = useState(false);
@@ -89,9 +90,15 @@ export function OravaChat({ report }: { report: HealthReport }) {
         role: m.from === 'me' ? 'user' : 'model',
         text: m.text,
       }));
-      const reply = await streamGemini(system, turns, (soFar) => write(plainText(soFar)));
+      const reply = await streamGemini(system, turns, (soFar) => write(plainText(soFar)), {
+        user,
+      });
       write(plainText(reply), true);
     } catch (e) {
+      if (e instanceof RateLimitError) {
+        write(`I've hit my hourly limit. Ask me again in ${minutesUntil(e.retryAt)}.`, true);
+        return;
+      }
       console.warn(e);
       write(answer(q, report), true);
     }

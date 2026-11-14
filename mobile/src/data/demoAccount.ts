@@ -137,53 +137,6 @@ function build(): Transaction[] {
 
 export const DEMO_TXS = build();
 
-/**
- * Second demo: a spending account. The salary moves on to the customer's main bank the day after
- * it arrives, about €520 stays for everyday spending, rent is paid elsewhere, and €9,000 of old
- * savings just sits here. Shows the spending-account score and idle money.
- */
-export const POCKET_OPENING_BALANCE = 9000;
-
-function pocketMonth(y: number, m: number, r: () => number): Transaction[] {
-  const d = (day: number) => `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const around = (base: number, spread: number) => base + (r() * 2 - 1) * spread;
-  const day = () => 1 + Math.floor(r() * 28);
-  const salary = 4450;
-  const out: Transaction[] = [
-    tx(d(15), 'Salary', 'Employer Oy', salary),
-    tx(d(16), 'Salary Sweep', 'To own account, Nordea', -(salary - 520)),
-    tx(d(6), 'Entertainment', 'Spotify', -11.99),
-    tx(d(8), 'Transportation', 'HSL travel card', -64.7),
-  ];
-  for (let i = 0; i < 3; i++) out.push(tx(d(day()), 'Groceries', GROCERS[i % 4], -around(45, 15)));
-  for (let i = 0; i < 4; i++)
-    out.push(tx(d(day()), 'Restaurants', RESTAURANTS[i % 5], -around(28, 10)));
-  out.push(tx(d(day()), 'Entertainment', 'Finnkino', -around(30, 10)));
-  if (r() < 0.6) out.push(tx(d(day()), 'Lifestyle', 'Sokos', -around(70, 30)));
-  if (r() < 0.3) out.push(tx(d(day()), 'Health', 'Pharmacy', -around(25, 10)));
-  return out;
-}
-
-const POCKET_TXS = (() => {
-  const r = rng(4450);
-  const all: Transaction[] = [];
-  for (let i = 0; i < 12; i++) {
-    const y = i < 3 ? 2025 : 2026;
-    const m = ((9 + i) % 12) + 1;
-    all.push(...pocketMonth(y, m, r));
-  }
-  return all.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-})();
-
-/** "Demo: spending account" on the sign-in screen. */
-export function pocketDemoAccount(): Account {
-  return {
-    username: 'demo (spending account)',
-    txs: POCKET_TXS,
-    balance: POCKET_TXS.reduce((b, t) => b + t.amount, POCKET_OPENING_BALANCE),
-  };
-}
-
 /** Account used by "Continue with demo data" on the sign-in screen. */
 export function demoAccount(): Account {
   return { username: 'demo', txs: DEMO_TXS, balance: balanceOf(DEMO_TXS) };

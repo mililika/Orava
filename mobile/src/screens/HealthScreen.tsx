@@ -155,7 +155,7 @@ export function HealthScreen({
 
         <RecurringCard r={report.recurring} />
       </ScrollView>
-      <OravaChat report={report} />
+      <OravaChat user={user} report={report} />
     </KeyboardAvoidingView>
   );
 }

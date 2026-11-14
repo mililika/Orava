@@ -141,8 +141,7 @@ Investment deposits count as left over.
 **Spending accounts.** When the salary moves on to another bank and no rent is paid here, the
 account is scored as a spending account (`variant: 'pocket'`): within what stays (35), never
 below zero (25), cushion of 2 months of this account's spending (20), money at work (20, idle
-money ≤ 2 months full, ≥ 12 months none). Same 0–100 scale and moods. Try it with
-"Demo: salary goes to another bank" on the sign-in screen.
+money ≤ 2 months full, ≥ 12 months none). Same 0–100 scale and moods.
 
 **Idle money** (everyone, `src/orava/growth.ts`): the lowest balance of the last 3 months above
 a 2-month spending cushion. Spending accounts show it as a tile; Ask Orava ("Is my money
