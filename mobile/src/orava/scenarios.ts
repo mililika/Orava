@@ -98,7 +98,7 @@ export function reactTo(tx: Transaction, history: Transaction[]): Reaction | nul
 }
 
 /** Income in the month of `date`; falls back to the average month, then to a typical salary. */
-function monthlyIncome(history: Transaction[], date: string) {
+export function monthlyIncome(history: Transaction[], date: string) {
   const month = date.slice(0, 7);
   const salary = (t: Transaction) => t.category === 'Salary';
   const thisMonth = history

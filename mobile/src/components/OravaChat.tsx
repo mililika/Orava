@@ -1,4 +1,9 @@
-// "Ask Orava": a small chat at the bottom of Money health. Answers come from orava/chat.ts.
+// "Ask Orava": the chat on Money health. Answers come from orava/chat.ts.
+// Split in two so the screen can scroll the messages with the page while the
+// input bar stays pinned to the bottom:
+//   const chat = useOravaChat(report);
+//   <ChatMessages chat={chat} />   (inside the ScrollView)
+//   <ChatInput chat={chat} />      (below it, outside the ScrollView)
 
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -14,7 +19,7 @@ interface Msg {
   text: string;
 }
 
-export function OravaChat({ report }: { report: HealthReport }) {
+export function useOravaChat(report: HealthReport, onSent?: () => void) {
   const [msgs, setMsgs] = useState<Msg[]>([
     { from: 'orava', text: 'Hi! Ask me anything about your money this month.' },
   ]);
@@ -29,24 +34,31 @@ export function OravaChat({ report }: { report: HealthReport }) {
       { from: 'orava', text: answer(q, report) },
     ]);
     setDraft('');
+    onSent?.();
   };
 
+  return { msgs, draft, setDraft, send };
+}
+
+export type OravaChatState = ReturnType<typeof useOravaChat>;
+
+export function ChatMessages({ chat }: { chat: OravaChatState }) {
   return (
     <Card style={s.card}>
-      <View style={s.list}>
-        {msgs.map((m, i) => (
+      <View style={s.list} role="log" aria-live="polite">
+        {chat.msgs.map((m, i) => (
           <View key={i} style={[s.bubble, m.from === 'me' ? s.me : s.orava]}>
             <Text style={[s.text, m.from === 'me' && { color: '#fff' }]}>{m.text}</Text>
           </View>
         ))}
       </View>
 
-      {msgs.length === 1 && (
+      {chat.msgs.length === 1 && (
         <View style={s.chips}>
           {SUGGESTIONS.map((q) => (
             <Pressable
               key={q}
-              onPress={() => send(q)}
+              onPress={() => chat.send(q)}
               role="button"
               style={({ pressed }) => [s.chip, pressed && { opacity: 0.75 }]}
             >
@@ -55,28 +67,33 @@ export function OravaChat({ report }: { report: HealthReport }) {
           ))}
         </View>
       )}
-
-      <View style={s.inputRow}>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={() => send(draft)}
-          placeholder="Ask Orava about your money…"
-          placeholderTextColor={colors.faint}
-          returnKeyType="send"
-          style={s.input}
-          accessibilityLabel="Ask Orava a question"
-        />
-        <Pressable
-          onPress={() => send(draft)}
-          role="button"
-          accessibilityLabel="Send"
-          style={({ pressed }) => [s.send, pressed && { opacity: 0.75 }]}
-        >
-          <Icon name="chevron" color="#fff" size={20} strokeWidth={2.4} />
-        </Pressable>
-      </View>
     </Card>
+  );
+}
+
+/** The text box and send button, pinned to the bottom of the screen. */
+export function ChatInput({ chat }: { chat: OravaChatState }) {
+  return (
+    <View style={s.bar}>
+      <TextInput
+        value={chat.draft}
+        onChangeText={chat.setDraft}
+        onSubmitEditing={() => chat.send(chat.draft)}
+        placeholder="Ask Orava about your money…"
+        placeholderTextColor={colors.faint}
+        returnKeyType="send"
+        style={s.input}
+        accessibilityLabel="Ask Orava a question"
+      />
+      <Pressable
+        onPress={() => chat.send(chat.draft)}
+        role="button"
+        accessibilityLabel="Send"
+        style={({ pressed }) => [s.send, pressed && { opacity: 0.75 }]}
+      >
+        <Icon name="chevron" color="#fff" size={20} strokeWidth={2.4} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -96,7 +113,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
   },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.green },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
   input: {
     flex: 1,
     height: 44,

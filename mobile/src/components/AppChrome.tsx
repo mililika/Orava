@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Mascot } from '../orava/Mascot';
+import { MOODS } from '../orava/moods';
 import type { Mood } from '../orava/types';
 import { colors } from '../theme';
 import { Icon, type IconName } from './Icon';
@@ -13,12 +14,15 @@ export function AppHeader({
   left,
   right,
   orava,
+  onDemo,
 }: {
   title?: string;
   left?: { icon: IconName; label: string; onPress: () => void };
   right?: ReactNode;
   /** Small squirrel button that opens Money health from any screen. */
   orava?: { mood: Mood; onPress: () => void };
+  /** Shows a "Demo" pill in the middle (prototype only) that opens the demo panel. */
+  onDemo?: () => void;
 }) {
   return (
     <View style={s.header}>
@@ -29,16 +33,34 @@ export function AppHeader({
           </Pressable>
         )}
       </View>
-      {title ? <Text style={s.title}>{title}</Text> : <View style={{ flex: 1 }} />}
-      <View style={[s.side, { alignItems: 'flex-end' }]}>{right}
+      {title ? (
+        <Text style={s.title}>{title}</Text>
+      ) : (
+        <View style={s.center}>
+          {onDemo && (
+            <Pressable
+              onPress={onDemo}
+              style={({ pressed }) => [s.demo, pressed && { opacity: 0.7 }]}
+              role="button"
+              accessibilityLabel="Open demo controls"
+            >
+              <Text style={s.demoText}>Demo</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+      <View style={[s.side, { alignItems: 'flex-end' }]}>
+        {right}
         {orava && (
           <Pressable
             onPress={orava.onPress}
             style={s.oravaBtn}
             accessibilityRole="button"
-            accessibilityLabel="Open Money health"
+            accessibilityLabel={`Open Money health. Orava: ${MOODS[orava.mood].name}`}
           >
-            <Mascot mood={orava.mood} size={34} ground={false} />
+            <View style={[s.oravaRing, { borderColor: MOODS[orava.mood].color }]}>
+              <Mascot mood={orava.mood} size={30} ground={false} />
+            </View>
           </Pressable>
         )}
       </View>
@@ -92,8 +114,31 @@ const s = StyleSheet.create({
   },
   side: { width: 88 },
   title: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: colors.ink },
-  oravaBtn: { height: 44, paddingRight: 12, alignItems: 'flex-end', justifyContent: 'center' },
+  oravaBtn: { height: 44, paddingRight: 10, alignItems: 'flex-end', justifyContent: 'center' },
+  /** Border in the mood's colour: green = doing great … red = needs attention. */
+  oravaRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2.5,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  demo: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoText: { color: colors.green, fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
   nav: {
     height: 66,
     backgroundColor: '#fff',
