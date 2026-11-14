@@ -1,14 +1,24 @@
 // Money health: Orava's verdict, three score cards with status tags, and where the money goes.
 // Display only; every number comes from buildHealth() in src/orava/health.ts.
 
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
 
 import { AppHeader } from '../components/AppChrome';
-import { OravaChat } from '../components/OravaChat';
+import { ChatInput, ChatMessages, useOravaChat } from '../components/OravaChat';
 import { SplitChart } from '../components/SplitChart';
 import { Card } from '../components/ui';
 import type { HealthReport, Stat, Tone } from '../orava/health';
 import { Mascot } from '../orava/Mascot';
+import type { Mood } from '../orava/types';
 import { colors, radius } from '../theme';
 
 /** Tag colours: green = good, gray = neutral, orange = warning, red = big problem. */
@@ -19,17 +29,36 @@ const TONE: Record<Tone, { bg: string; fg: string }> = {
   bad: { bg: '#fde0dd', fg: '#a3201a' },
 };
 
-export function HealthScreen({ report, onBack }: { report: HealthReport; onBack: () => void }) {
+export function HealthScreen({
+  report,
+  onBack,
+  mood,
+}: {
+  report: HealthReport;
+  onBack: () => void;
+  /** The mood the squirrel shows. Defaults to the report's; the demo panel can override it. */
+  mood?: Mood;
+}) {
   const { orava } = report;
+  const scroll = useRef<ScrollViewInstance>(null);
+  // After a new message, scroll so the latest answer sits just above the input bar.
+  const chat = useOravaChat(report, () =>
+    setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50),
+  );
 
   return (
-    <View style={s.screen}>
+    <KeyboardAvoidingView style={s.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <AppHeader title="Money health" left={{ icon: 'back', label: 'Back', onPress: onBack }} />
-      <ScrollView contentContainerStyle={s.body}>
+      <ScrollView
+        ref={scroll}
+        style={{ flex: 1 }}
+        contentContainerStyle={s.body}
+        keyboardShouldPersistTaps="handled"
+      >
         <Card>
           <Text style={s.period}>{report.period}</Text>
           <View style={s.hero}>
-            <Mascot mood={orava.mood} size={110} />
+            <Mascot mood={mood ?? orava.mood} size={110} />
             <View style={s.heroText}>
               <View style={s.scoreRow}>
                 <Text style={s.score}>{orava.score}</Text>
@@ -50,9 +79,10 @@ export function HealthScreen({ report, onBack }: { report: HealthReport; onBack:
         <SplitChart parts={report.split} income={report.income} />
 
         <Text style={s.section}>Ask Orava</Text>
-        <OravaChat report={report} />
+        <ChatMessages chat={chat} />
       </ScrollView>
-    </View>
+      <ChatInput chat={chat} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -83,7 +113,7 @@ function StatCard({ stat }: { stat: Stat }) {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.mint },
-  body: { padding: 12, gap: 10, paddingBottom: 32 },
+  body: { padding: 12, gap: 10, paddingBottom: 16 },
   period: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   heroText: { flex: 1, gap: 6 },

@@ -7,7 +7,27 @@
 // Rules are checked top to bottom; the first match wins. Orava is never angry
 // or shaming: even the worst state reads as concern, not blame.
 
-import type { MonthSnapshot, OravaState } from './types';
+import type { MonthSnapshot, OravaState, ScoreBreakdown } from './types';
+
+/**
+ * The score, out of 100. Built so that 100 is out of reach: there is always a next step.
+ *   base     40
+ *   saving   up to +55, with diminishing returns: 10% kept ≈ +22, 20% ≈ +35, 30% ≈ +43,
+ *            50% ≈ +50. Spending more than you earn costs 2.5 points per % over.
+ *   slips    −0.4 points per % that everyday slips are above your usual (spending less
+ *            than usual doesn't add points; it already shows up as money kept)
+ * The best possible score is about 95.
+ */
+export const SCORE_BASE = 40;
+export const SCORE_SAVING_MAX = 55;
+
+export function scoreBreakdown(savingRate: number, slipRatio: number): ScoreBreakdown {
+  const saving =
+    savingRate >= 0 ? SCORE_SAVING_MAX * (1 - Math.exp(-savingRate / 0.2)) : savingRate * 250;
+  const slipsOverPct = Math.round((slipRatio - 1) * 100);
+  const slips = -Math.max(0, slipsOverPct) * 0.4;
+  return { base: SCORE_BASE, saving: Math.round(saving), slips: Math.round(slips), slipsOverPct };
+}
 
 const eur = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-US')}`;
 
@@ -19,8 +39,9 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
   const slipsOverPct = Math.round((slipRatio - 1) * 100);
   const ratePct = Math.round(savingRate * 100);
 
-  const score = clamp(Math.round(40 + savingRate * 250 - Math.max(0, slipRatio - 1) * 40), 0, 100);
-  const base = { score, savingRate };
+  const breakdown = scoreBreakdown(savingRate, slipRatio);
+  const score = clamp(breakdown.base + breakdown.saving + breakdown.slips, 0, 100);
+  const base = { score, savingRate, breakdown };
 
   if (s.balance < 0) {
     return {

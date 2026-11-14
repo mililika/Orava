@@ -1,6 +1,6 @@
 // Orava the squirrel, ported from the "Orava — animated squirrel demo" SVG.
-// Four moods (happy / okay / worried / alert), each with its own idle motion:
-// happy bounces and wags, okay bobs, worried droops and sweats, alert shakes with a red ring.
+// Four moods (happy / okay / worried / alert), each with a subtle idle motion:
+// happy sways, okay breathes, worried droops with a sweat drop, alert trembles with a red ring.
 // The SVG is split into layers (tail, body, head, acorn, effects) so each layer can be
 // animated with React Native's Animated API on phone and web alike.
 // Change `hop` (e.g. a counter) to make Orava hop once.
@@ -51,53 +51,55 @@ const CFG: Record<
     loopMs: number;
   }
 > = {
+  // Kept deliberately small: a slow breath, a little tail sway. Alert is the only
+  // mood that moves noticeably, because it means something needs attention.
   happy: {
-    half: 450,
-    bob: -11,
+    half: 1600,
+    bob: -3,
     shake: 0,
     rot: 0,
-    squash: 0.02,
-    tail: [-8, 9],
+    squash: 0,
+    tail: [-3, 3],
     tailScale: [1, 1],
-    shadow: [1, 0.82],
+    shadow: [1, 0.95],
     tilt: 0,
-    loopMs: 1600,
+    loopMs: 3200,
   },
   okay: {
-    half: 1300,
-    bob: -5,
+    half: 2000,
+    bob: -2,
     shake: 0,
     rot: 0,
-    squash: 0,
-    tail: [-3, 4],
-    tailScale: [1, 1],
-    shadow: [1, 0.86],
-    tilt: 0,
-    loopMs: 2200,
-  },
-  worried: {
-    half: 1900,
-    bob: -5,
-    shake: 0,
-    rot: 0,
-    squash: 0,
-    tail: [14, 18],
-    tailScale: [1, 1],
-    shadow: [1, 0.86],
-    tilt: -7,
-    loopMs: 2200,
-  },
-  alert: {
-    half: 250,
-    bob: 0,
-    shake: 3,
-    rot: 1.5,
     squash: 0,
     tail: [-2, 2],
-    tailScale: [1.08, 1.12],
+    tailScale: [1, 1],
+    shadow: [1, 0.96],
+    tilt: 0,
+    loopMs: 3200,
+  },
+  worried: {
+    half: 2200,
+    bob: -2,
+    shake: 0,
+    rot: 0,
+    squash: 0,
+    tail: [14, 16],
+    tailScale: [1, 1],
+    shadow: [1, 0.96],
+    tilt: -7,
+    loopMs: 3200,
+  },
+  alert: {
+    half: 450,
+    bob: 0,
+    shake: 1.5,
+    rot: 0.8,
+    squash: 0,
+    tail: [-1.5, 1.5],
+    tailScale: [1.06, 1.08],
     shadow: [1, 1],
     tilt: 0,
-    loopMs: 1200,
+    loopMs: 1600,
   },
 };
 
@@ -213,14 +215,14 @@ export function Mascot({
         inputRange: [0, 0.5, 1],
         outputRange:
           mood === 'alert'
-            ? ['-2deg', '2deg', '-2deg']
+            ? ['-1.5deg', '1.5deg', '-1.5deg']
             : [`${cfg.tail[0]}deg`, `${(cfg.tail[0] + cfg.tail[1]) / 2}deg`, `${cfg.tail[1]}deg`],
       }),
     },
     { scale: range(...cfg.tailScale) },
   ]);
   const head = around(95, 127, [{ rotate: `${cfg.tilt}deg` }]);
-  const acorn = around(96, 152, [{ rotate: mood === 'happy' ? deg(-8, 8) : '0deg' }]);
+  const acorn = around(96, 152, [{ rotate: mood === 'happy' ? deg(-3, 3) : '0deg' }]);
 
   const layer = (children: ReactNode, style?: object) => (
     <Animated.View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
@@ -262,10 +264,10 @@ export function Mascot({
               <Path d="M34,62 l4,10 l10,4 l-10,4 l-4,10 l-4,-10 l-10,-4 l10,-4 Z" fill={C.gold} />
               <Path d="M28,150 l3,7 l7,3 l-7,3 l-3,7 l-3,-7 l-7,-3 l7,-3 Z" fill={C.mint} />
             </>,
-            { opacity: range(0.2, 1) },
+            { opacity: range(0.6, 1) },
           )}
           {layer(<Path d="M178,30 l3,8 l8,3 l-8,3 l-3,8 l-3,-8 l-8,-3 l8,-3 Z" fill={C.gold} />, {
-            opacity: range(1, 0.2),
+            opacity: range(1, 0.6),
           })}
         </>
       )}
@@ -281,7 +283,7 @@ export function Mascot({
             opacity: loop.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }),
             transform: [
               {
-                translateY: loop.interpolate({ inputRange: [0, 1], outputRange: [-4 * k, 16 * k] }),
+                translateY: loop.interpolate({ inputRange: [0, 1], outputRange: [-2 * k, 8 * k] }),
               },
             ],
           },
@@ -295,8 +297,8 @@ export function Mascot({
           </G>,
           {
             transform: around(160, 34, [
-              { translateY: range(0, -6 * k) },
-              { scale: range(1, 1.12) },
+              { translateY: range(0, -3 * k) },
+              { scale: range(1, 1.06) },
             ]),
           },
         )}

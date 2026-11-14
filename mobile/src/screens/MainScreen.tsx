@@ -6,11 +6,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppHeader, BottomNav } from '../components/AppChrome';
+import { DemoSheet } from '../components/DemoSheet';
 import { useToast } from '../components/Toast';
 import { typeFor } from '../data/categories';
 import type { Account, Transaction } from '../data/demoAccount';
+import { DEMOS, buildDemo, type DemoKind } from '../data/demoScenarios';
 import { buildHealth } from '../orava/health';
 import { reactTo, type Reaction, type ReactionAction } from '../orava/scenarios';
+import type { Mood } from '../orava/types';
 import { colors, eur } from '../theme';
 import { AddTransactionScreen, type NewTx } from './AddTransactionScreen';
 import { HealthScreen } from './HealthScreen';
@@ -24,6 +27,9 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
   const [added, setAdded] = useState<Transaction[]>([]);
   const [screen, setScreen] = useState<Screen>('home');
   const [reaction, setReaction] = useState<Reaction | null>(null);
+  // Demo panel: one-tap reactions, and a mood override to show off the squirrel.
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [moodOverride, setMoodOverride] = useState<Mood | null>(null);
   const { show, toast } = useToast();
 
   // Loaded transactions the user swiped away (prototype: hidden here, not deleted in the database).
@@ -87,8 +93,32 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
     show(`Deleted: ${t.merchant} ${t.amount > 0 ? '+' : ''}${eur(t.amount)}`);
   };
 
+  const resetDemo = () => {
+    setAdded([]);
+    setRemoved([]);
+    setReaction(null);
+  };
+  /** Start from the account's own data, add the scenario's transactions, react to the last one. */
+  const runDemo = (kind: DemoKind) => {
+    const demo = DEMOS.find((d) => d.kind === kind)!;
+    const list: Transaction[] = buildDemo(kind, account.txs, today).map((t) => ({
+      ...t,
+      id: `new${++seq}`,
+      type: typeFor(t.category),
+    }));
+    const newestFirst = [...list].reverse();
+    const r = reactTo(newestFirst[0], [...newestFirst, ...account.txs]);
+    resetDemo();
+    setAdded(newestFirst);
+    setReaction(r);
+    setScreen('home');
+    setDemoOpen(false);
+    show(r ? `Demo: ${demo.title.toLowerCase()}` : `Demo: added, but Orava had no reaction`);
+  };
+
   const openHealth = useCallback(() => setScreen('health'), []);
-  const headerOrava = { mood: reaction?.mood ?? report.orava.mood, onPress: openHealth };
+  const mood = moodOverride ?? reaction?.mood ?? report.orava.mood;
+  const headerOrava = { mood, onPress: openHealth };
   const onTab = () => setScreen('home');
 
   return (
@@ -101,19 +131,20 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
             orava={headerOrava}
           />
         ) : screen === 'health' ? (
-          <HealthScreen report={report} onBack={() => setScreen('home')} />
+          <HealthScreen report={report} onBack={() => setScreen('home')} mood={mood} />
         ) : (
           <>
             <AppHeader
               left={{ icon: 'lock', label: 'Sign out', onPress: onLogout }}
               orava={headerOrava}
+              onDemo={() => setDemoOpen(true)}
             />
             <HomeScreen
               username={account.username}
               balance={balance}
               txs={txs}
               orava={{
-                mood: reaction?.mood ?? report.orava.mood,
+                mood,
                 score: report.orava.score,
                 message: reaction?.message ?? report.orava.message,
                 actions: reaction?.actions?.map((a) => ({ ...a, onPress: () => act(a.id) })),
@@ -126,6 +157,20 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
         )}
       </View>
       {screen !== 'add' && <BottomNav tab="home" onChange={onTab} />}
+      {demoOpen && (
+        <DemoSheet
+          onScenario={runDemo}
+          mood={moodOverride}
+          onMood={setMoodOverride}
+          onReset={() => {
+            resetDemo();
+            setMoodOverride(null);
+            setDemoOpen(false);
+            show('Back to the start of the demo');
+          }}
+          onClose={() => setDemoOpen(false)}
+        />
+      )}
       {toast}
     </View>
   );
