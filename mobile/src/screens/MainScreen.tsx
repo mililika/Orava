@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppHeader, BottomNav } from '../components/AppChrome';
+import { LimitModal } from '../components/LimitModal';
 import { useToast } from '../components/Toast';
 import { typeFor } from '../data/categories';
 import type { Account, Transaction } from '../data/demoAccount';
@@ -108,6 +109,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
       </View>
       {screen !== 'add' && <BottomNav tab="home" onChange={onTab} />}
       {toast}
+      <LimitModal />
     </View>
   );
 }

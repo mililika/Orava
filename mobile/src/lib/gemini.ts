@@ -5,6 +5,8 @@
 
 import { fetch } from 'expo/fetch';
 
+import { RateLimitError, reportLimit, takeRequest } from './rateLimit';
+
 const KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 /**
  * Gemini 3.8 Flash with low thinking: quick and still sharp with numbers. Override with
@@ -34,6 +36,8 @@ type Part = { text?: string; thought?: boolean };
 interface Options {
   /** OpenAPI-style response schema: the reply is JSON text matching it. */
   schema?: object;
+  /** Signed-in username: counts toward their hourly request limit (lib/rateLimit.ts). */
+  user?: string;
 }
 
 /** Answer text of one response (or one streamed chunk), without the model's thoughts. */
@@ -48,16 +52,25 @@ const textOf = (data: unknown) =>
 
 /**
  * POSTs to Gemini, retrying once without the thinking level if the model rejects it.
- * Returns the response once it is OK; throws a readable Error otherwise.
+ * Returns the response once it is OK; throws a readable Error otherwise, or RateLimitError when
+ * the user has used up this hour's requests.
  */
 async function post(
   method: 'generateContent' | 'streamGenerateContent?alt=sse',
   system: string,
   turns: ChatTurn[],
-  { schema }: Options,
+  { schema, user }: Options,
 ) {
   if (!geminiConfigured) {
     throw new Error('Gemini is not configured. Set EXPO_PUBLIC_GEMINI_API_KEY in mobile/.env.');
+  }
+  if (user) {
+    try {
+      await takeRequest(user);
+    } catch (e) {
+      if (e instanceof RateLimitError) reportLimit(e); // shows the "limit reached" modal
+      throw e;
+    }
   }
   const call = async (thinking: boolean) => {
     try {

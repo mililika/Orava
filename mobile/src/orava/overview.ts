@@ -132,9 +132,7 @@ export async function getOverview(
     const raw = await askGemini(
       coachSystem(report),
       [{ role: 'user', text: prompt(month, latest) }],
-      {
-        schema: SCHEMA,
-      },
+      { schema: SCHEMA, user },
     );
     const overview = parse(raw);
     store[month] = { sig, overview, at: Date.now() };
