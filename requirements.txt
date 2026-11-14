@@ -1,0 +1,5 @@
+# Orava is an Expo/React Native TypeScript project.
+# It has no Python dependencies.
+# Install JavaScript dependencies with:
+#   npm run setup
+# The complete dependency manifest is in mobile/package.json.

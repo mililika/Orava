@@ -1,105 +1,53 @@
-// The one screen of the prototype: S-mobiili home with Orava on it.
-// Data flow: transactions → buildSnapshot() → evaluateOrava() → OravaCard.
-
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-
-import { AccountsSection, ApprovalsCard, TransactionsSection } from '../components/AccountCards';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { AccountsSection, TransactionsSection } from '../components/AccountCards';
 import { AppHeader, BottomNav, type Tab } from '../components/AppChrome';
-import { BonusCard } from '../components/BonusCard';
 import { OravaCard } from '../components/OravaCard';
 import { useToast } from '../components/Toast';
-import { Card } from '../components/ui';
-import {
-  DEMO_ACTIONS,
-  buildSnapshot,
-  slipsBaselineOf,
-  splitLatestMonth,
-  type Account,
-  type Transaction,
-} from '../data/demoAccount';
+import { Card, SectionHead } from '../components/ui';
+import { DEMO_ACTIONS, buildSnapshot, slipsBaselineOf, splitLatestMonth, type Account, type Transaction } from '../data/demoAccount';
 import { evaluateOrava } from '../orava/logic';
-import { colors } from '../theme';
+import { FinancialHealthScreen } from './FinancialHealthScreen';
+import { colors, eur } from '../theme';
 
-const TAB_NAMES: Record<Tab, string> = {
-  home: 'Home',
-  etukortti: 'S-Etukortti',
-  pay: 'Pay',
-  sbank: 'S-Bank',
-  me: 'Me',
-};
+const TAB_NAMES: Record<Tab, string> = { home: 'Home', etukortti: 'S-Etukortti', pay: 'Pay', sbank: 'S-Bank', me: 'Me' };
 
 export function HomeScreen({ account, onLogout }: { account: Account; onLogout: () => void }) {
-  // Demo buttons add transactions on top of what was loaded from the database.
   const [added, setAdded] = useState<Transaction[]>([]);
-  const txs = useMemo(() => [...added, ...account.txs], [added, account.txs]);
   const [tab, setTab] = useState<Tab>('home');
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [oravaEnabled, setOravaEnabled] = useState(true);
   const { show, toast } = useToast();
-
+  const txs = useMemo(() => [...added, ...account.txs], [added, account.txs]);
   const balance = account.balance + added.reduce((sum, t) => sum + t.amount, 0);
-  const orava = useMemo(() => {
-    const { month, earlier } = splitLatestMonth(txs);
-    return evaluateOrava(buildSnapshot(month, balance, slipsBaselineOf(earlier)));
-  }, [txs, balance]);
-
-  const add = (t: Transaction, msg: string) => {
-    setAdded((prev) => [t, ...prev]);
-    show(msg);
-  };
-  const soon = (what: string) => () => show(`${what} is not part of the prototype yet`);
-
-  return (
-    <View style={s.screen}>
-      <AppHeader onLock={onLogout} onChat={soon('Messages')} />
-
-      <ScrollView style={s.scroll} contentContainerStyle={{ flexGrow: 1 }}>
-        {tab === 'home' ? (
-          <>
-            <BonusCard onPress={soon('Bonus details')} />
-            <View style={s.body}>
-              <OravaCard
-                state={orava}
-                demo={{
-                  eatOut: () => add(DEMO_ACTIONS.eatOut(), 'Added: takeaway −€45'),
-                  jacket: () => add(DEMO_ACTIONS.jacket(), 'Added: new jacket −€120'),
-                  sideGig: () => add(DEMO_ACTIONS.sideGig(), 'Added: side gig +€400'),
-                  reset: () => {
-                    setAdded([]);
-                    show('Back to the start of the demo');
-                  },
-                }}
-              />
-              <ApprovalsCard onPress={soon('Payments to approve')} />
-              <AccountsSection balance={balance} onPress={soon('Account details')} />
-              <TransactionsSection txs={txs} />
-              <Text style={s.foot}>
-                Signed in as {account.username}. Data from the S-Bank Junction 2026 dataset.
-              </Text>
-            </View>
-          </>
-        ) : (
-          <View style={s.body}>
-            <Card>
-              <Text style={s.stubTitle}>{TAB_NAMES[tab]}</Text>
-              <Text style={s.stubText}>
-                This tab is a placeholder. Orava lives on Home for now.
-              </Text>
-            </Card>
-          </View>
-        )}
-      </ScrollView>
-
-      <BottomNav tab={tab} onChange={setTab} />
-      {toast}
-    </View>
-  );
+  const orava = useMemo(() => { const { month, earlier } = splitLatestMonth(txs); return evaluateOrava(buildSnapshot(month, balance, slipsBaselineOf(earlier))); }, [txs, balance]);
+  const { month } = splitLatestMonth(txs);
+  const restaurants = month.filter((t) => t.category === 'Restaurants').reduce((n, t) => n + Math.abs(t.amount), 0);
+  const regular = month.filter((t) => ['Housing', 'Utilities'].includes(t.category)).reduce((n, t) => n + Math.abs(t.amount), 0);
+  const add = (t: Transaction, msg: string) => { setAdded((prev) => [t, ...prev]); show(msg); };
+  const soon = (what: string) => () => show(`${what} is coming soon`);
+  if (healthOpen) return <FinancialHealthScreen txs={txs} balance={balance} onBack={() => setHealthOpen(false)} />;
+  return <View style={s.screen}>
+    <AppHeader onLock={onLogout} onChat={() => setHealthOpen(true)} />
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+      {tab === 'home' ? <>
+        <View style={s.welcome}><View><Text style={s.kicker}>GOOD MORNING, {account.username.toUpperCase()}</Text><Text style={s.heading}>Your money, at a glance.</Text></View><View style={s.status}><View style={s.statusDot}/><Text style={s.statusText}>Protected</Text></View></View>
+        {oravaEnabled ? <OravaCard state={orava} demo={{ eatOut: () => add(DEMO_ACTIONS.eatOut(), 'Added: takeaway −€45'), jacket: () => add(DEMO_ACTIONS.jacket(), 'Added: new jacket −€120'), sideGig: () => add(DEMO_ACTIONS.sideGig(), 'Added: side gig +€400'), reset: () => { setAdded([]); show('Demo reset'); } }} /> : <Card style={s.offCard}><Text style={s.offTitle}>Orava is taking a quiet moment</Text><Text style={s.offText}>Turn the coach back on whenever you want a second pair of eyes on your spending.</Text><Pressable onPress={() => setOravaEnabled(true)} style={s.smallButton}><Text style={s.smallButtonText}>Turn Orava on</Text></Pressable></Card>}
+        {oravaEnabled && (orava.mood === 'alarmed' || orava.mood === 'worried') ? <Card style={s.alert}><View style={s.alertIcon}><Text style={s.alertIconText}>!</Text></View><View style={{ flex: 1 }}><Text style={s.alertTitle}>Orava spotted a pressure point</Text><Text style={s.alertText}>{orava.message}</Text></View><Text style={s.arrow}>›</Text></Card> : null}
+        <View style={s.askRow}><View style={s.askIcon}><Text style={s.askIconText}>✦</Text></View><View style={{ flex: 1 }}><Text style={s.askTitle}>Ask Orava anything</Text><Text style={s.askText}>“What’s safe to spend this week?”</Text></View><Pressable onPress={() => setHealthOpen(true)} style={s.askButton}><Text style={s.askButtonText}>Ask</Text></Pressable></View>
+        <SectionHead title="This month" right={eur(balance)} />
+        <Card style={s.healthCard}><View style={s.healthTop}><View><Text style={s.healthLabel}>FINANCIAL HEALTH</Text><Text style={s.healthScore}>{orava.score}<Text style={s.outOf}> / 100</Text></Text></View><View style={s.ring}><Text style={s.ringText}>{orava.score >= 60 ? 'On track' : 'Needs care'}</Text></View></View><View style={s.bars}><Metric label="Regular must-pays" value={regular} max={1200} color={colors.green}/><Metric label="Everyday slips" value={restaurants} max={600} color={colors.warn}/></View><Text style={s.trace}>Every insight traces back to your real transactions · Updated just now</Text></Card>
+        <View style={s.sectionRow}><SectionHead title="Three baskets"/><Pressable onPress={() => Linking.openURL('https://www.s-pankki.fi/fi/saastaminen-ja-sijoittaminen/')}><Text style={s.learnLink}>Learn the idea →</Text></Pressable></View>
+        <View style={s.basketRow}><Basket title="Must-pays" amount={regular} note="Rent + bills" tone="green"/><Basket title="Surprises" amount={317} note="Home + health" tone="amber"/><Basket title="Everyday slips" amount={restaurants} note="Eating out" tone="red"/></View>
+        <AccountsSection balance={balance} onPress={soon('Account details')} /><TransactionsSection txs={txs}/><Text style={s.foot}>Signed in as {account.username}. Demo data mirrors the S-Bank Junction dataset.</Text>
+      </> : tab === 'me' ? <Card style={s.meCard}><Text style={s.kicker}>YOUR ORAVA</Text><Text style={s.meTitle}>A coach you control.</Text><View style={s.setting}><View style={{ flex: 1 }}><Text style={s.settingTitle}>Show Orava on Home</Text><Text style={s.settingSub}>Mood, alerts and quick explanations</Text></View><Switch value={oravaEnabled} onValueChange={setOravaEnabled} trackColor={{ false: colors.line, true: colors.greenSoft }} thumbColor={oravaEnabled ? colors.green : colors.faint}/></View><View style={s.setting}><View style={{ flex: 1 }}><Text style={s.settingTitle}>Transaction explanations</Text><Text style={s.settingSub}>Always show the numbers behind an insight</Text></View><Text style={s.check}>✓</Text></View><Pressable onPress={onLogout} style={s.logout}><Text style={s.logoutText}>Lock and sign out</Text></Pressable></Card> : <View style={s.placeholder}><Text style={s.stubTitle}>{TAB_NAMES[tab]}</Text><Text style={s.stubText}>Orava lives on Home and is ready whenever you need a calmer view of your money.</Text></View>}
+    </ScrollView><BottomNav tab={tab} onChange={setTab}/>{toast}
+  </View>;
 }
 
+function Metric({ label, value, max, color }: { label: string; value: number; max: number; color: string }) { return <View style={s.metric}><View style={s.metricHead}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricAmount}>{eur(value)}</Text></View><View style={s.track}><View style={[s.fill, { width: `${Math.min(100, (value / max) * 100)}%`, backgroundColor: color }]}/></View></View>; }
+function Basket({ title, amount, note, tone }: { title: string; amount: number; note: string; tone: 'green' | 'amber' | 'red' }) { const color = tone === 'green' ? colors.green : tone === 'amber' ? colors.amber : colors.warn; return <Card style={s.basket}><View style={[s.basketDot, { backgroundColor: color }]}/><Text style={s.basketTitle}>{title}</Text><Text style={s.basketAmount}>{eur(amount)}</Text><Text style={s.basketNote}>{note}</Text></Card>; }
+
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.mint },
-  scroll: { flex: 1 },
-  body: { padding: 12, paddingBottom: 24, gap: 12 },
-  foot: { fontSize: 11.5, color: colors.faint, marginHorizontal: 4, lineHeight: 16 },
-  stubTitle: { fontSize: 19, fontWeight: '700', color: colors.green, marginBottom: 6 },
-  stubText: { fontSize: 14, color: colors.ink2 },
+  screen: { flex: 1, backgroundColor: colors.mint }, scroll: { flex: 1 }, scrollContent: { padding: 16, gap: 14, paddingBottom: 24 }, welcome: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingVertical: 4 }, kicker: { color: colors.green2, fontSize: 10, letterSpacing: 1.1, fontWeight: '800' }, heading: { color: colors.green, fontSize: 24, fontWeight: '700', marginTop: 4, letterSpacing: -0.3 }, status: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: 3 }, statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green2 }, statusText: { fontSize: 11, color: colors.green2, fontWeight: '700' }, alert: { backgroundColor: colors.warnBg, borderRadius: 14, padding: 13, flexDirection: 'row', gap: 10, alignItems: 'center' }, alertIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.warn, alignItems: 'center', justifyContent: 'center' }, alertIconText: { color: '#fff', fontWeight: '800' }, alertTitle: { color: colors.warn, fontSize: 14, fontWeight: '800' }, alertText: { color: colors.ink2, fontSize: 12, lineHeight: 17, marginTop: 2 }, arrow: { color: colors.warn, fontSize: 26 }, askRow: { backgroundColor: colors.paper, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.line }, askIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }, askIconText: { color: '#fff', fontSize: 18 }, askTitle: { color: colors.ink, fontWeight: '800', fontSize: 14 }, askText: { color: colors.ink2, fontSize: 12, marginTop: 2 }, askButton: { backgroundColor: colors.green, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18 }, askButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 }, sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, learnLink: { color: colors.warn, fontSize: 12, fontWeight: '800', marginRight: 4 }, healthCard: { padding: 15 }, healthTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, healthLabel: { fontSize: 10, color: colors.faint, letterSpacing: 1, fontWeight: '800' }, healthScore: { fontSize: 35, color: colors.green, fontWeight: '800', marginTop: 2 }, outOf: { fontSize: 14, color: colors.faint, fontWeight: '500' }, ring: { borderWidth: 1, borderColor: colors.greenSoft, backgroundColor: colors.okBg, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7 }, ringText: { color: colors.okInk, fontWeight: '700', fontSize: 12 }, bars: { gap: 10, marginTop: 12 }, metric: {}, metricHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }, metricLabel: { fontSize: 12, color: colors.ink2 }, metricAmount: { fontSize: 12, color: colors.ink, fontWeight: '700' }, track: { height: 7, backgroundColor: colors.paper, borderRadius: 4, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 4 }, trace: { color: colors.faint, fontSize: 10.5, marginTop: 13 }, basketRow: { flexDirection: 'row', gap: 8 }, basket: { flex: 1, padding: 12, minHeight: 105 }, basketDot: { width: 9, height: 9, borderRadius: 5, marginBottom: 9 }, basketTitle: { color: colors.ink, fontSize: 12, fontWeight: '800' }, basketAmount: { color: colors.green, fontSize: 16, fontWeight: '800', marginTop: 6 }, basketNote: { color: colors.faint, fontSize: 10, marginTop: 3 }, foot: { color: colors.faint, fontSize: 11, lineHeight: 16 }, placeholder: { padding: 4, gap: 8 }, stubTitle: { color: colors.green, fontSize: 24, fontWeight: '700' }, stubText: { color: colors.ink2, fontSize: 15, lineHeight: 22 }, meCard: { gap: 16, marginTop: 4 }, meTitle: { color: colors.green, fontSize: 25, fontWeight: '700', marginTop: -9 }, setting: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 15, gap: 12 }, settingTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' }, settingSub: { color: colors.faint, fontSize: 12, marginTop: 3 }, check: { color: colors.green, fontSize: 22, fontWeight: '800' }, logout: { marginTop: 8, alignItems: 'center', padding: 13, borderRadius: 24, backgroundColor: colors.paper }, logoutText: { color: colors.warn, fontWeight: '800' }, offCard: { backgroundColor: colors.paper }, offTitle: { color: colors.green, fontSize: 18, fontWeight: '800' }, offText: { color: colors.ink2, fontSize: 13, lineHeight: 19, marginTop: 6 }, smallButton: { backgroundColor: colors.green, borderRadius: 20, paddingVertical: 10, alignItems: 'center', marginTop: 13 }, smallButtonText: { color: '#fff', fontWeight: '800' },
 });
