@@ -13,21 +13,37 @@ You need **Node.js** (LTS, from nodejs.org) and **git**. That's all.
 
 ```bash
 git clone https://github.com/mililika/Orava.git
-cd Orava/mobile
-npm install
-npx expo start
+cd Orava
+npm run setup        # first time only, installs everything
 ```
 
-Then, in the terminal that opens:
+Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 
-- press **`w`** to open it in your browser (fastest while coding), or
-- scan the **QR code** with your phone: iPhone camera app, or the **Expo Go** app on Android.
-  Install Expo Go from the App Store / Google Play first. Phone and laptop must be on the
-  same Wi-Fi; if that doesn't work, run `npx expo start --tunnel`.
-- press **`i`** for the iPhone Simulator (Mac with Xcode only) or **`a`** for the Android
-  Emulator (Android Studio only). Neither is required.
+| Command                | What it does                                                |
+| ---------------------- | ----------------------------------------------------------- |
+| `npm run web`          | Opens the app in your browser. Fastest while coding.        |
+| `npm run phone`        | Shows a QR code to open the app on your phone (see below).  |
+| `npm run phone:tunnel` | Same, for Wi-Fi where the phone can't see your laptop.      |
+| `npm run ios`          | iPhone Simulator. Mac with Xcode only; use it for the demo. |
+| `npm run android`      | Android Emulator. Needs Android Studio.                     |
 
-Saving a file reloads the app automatically.
+While the app is running, the terminal also takes keys: **`w`** browser, **`i`** iPhone
+Simulator, **`r`** reload. Saving a file reloads the app automatically.
+
+### On your phone
+
+1. Install **Expo Go** from the App Store or Google Play.
+2. Connect the phone to the **same Wi-Fi** as your laptop.
+3. Run `npm run phone`. A QR code appears in the terminal.
+4. **iPhone:** scan it with the normal Camera app and tap the "Open in Expo Go" banner.
+   **Android:** open Expo Go and tap "Scan QR code".
+5. The first load takes 10–30 seconds. After that, saving a file updates the phone too.
+
+If the phone says it can't connect, the Wi-Fi is probably blocking devices from seeing each
+other (common at events and offices). Stop with Ctrl+C and run `npm run phone:tunnel`
+instead; the first time, it asks to install a small tunnel package: answer yes.
+
+If Expo Go says the project needs a different SDK version, update Expo Go from the store.
 
 ## Editor
 
@@ -37,7 +53,7 @@ Any editor works. VS Code and Cursor will offer the recommended extensions
 ```bash
 npm run lint          # ESLint
 npm run format        # Prettier, rewrites files
-npx tsc --noEmit      # TypeScript check
+npm run typecheck     # TypeScript check
 ```
 
 ## Where things are

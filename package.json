@@ -1,0 +1,17 @@
+{
+  "name": "orava",
+  "private": true,
+  "description": "Orava – a money coach for S-mobiili (Junction 2026). Shortcuts that run the app in mobile/.",
+  "scripts": {
+    "setup": "npm install --prefix mobile",
+    "start": "npm run start --prefix mobile",
+    "web": "npm run web --prefix mobile",
+    "phone": "npm run start --prefix mobile",
+    "phone:tunnel": "npm run start --prefix mobile -- --tunnel",
+    "ios": "npm run ios --prefix mobile",
+    "android": "npm run android --prefix mobile",
+    "lint": "npm run lint --prefix mobile",
+    "format": "npm run format --prefix mobile",
+    "typecheck": "cd mobile && npx tsc --noEmit"
+  }
+}
