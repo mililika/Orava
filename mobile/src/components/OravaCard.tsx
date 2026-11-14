@@ -1,7 +1,7 @@
 // The Orava card on the home screen. It only displays an OravaState;
 // it never decides the mood itself (that lives in src/orava/logic.ts).
+// Tapping Orava opens the "Why Orava is …" screen.
 
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Mascot } from '../orava/Mascot';
@@ -17,8 +17,15 @@ export interface DemoActions {
   reset: () => void;
 }
 
-export function OravaCard({ state, demo }: { state: OravaState; demo: DemoActions }) {
-  const [open, setOpen] = useState(false);
+export function OravaCard({
+  state,
+  demo,
+  onOpenWhy,
+}: {
+  state: OravaState;
+  demo: DemoActions;
+  onOpenWhy: () => void;
+}) {
   const mood = MOODS[state.mood];
 
   return (
@@ -35,28 +42,18 @@ export function OravaCard({ state, demo }: { state: OravaState; demo: DemoAction
       </View>
 
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        onPress={onOpenWhy}
         style={s.hero}
         role="button"
-        accessibilityHint="Shows why Orava feels this way"
+        accessibilityHint="Opens why Orava feels this way and what you could try"
       >
         <Mascot mood={state.mood} size={140} />
         <View style={[s.moodTag, { backgroundColor: mood.bg }]}>
           <Text style={[s.moodText, { color: mood.fg }]}>{mood.name}</Text>
         </View>
         <Text style={s.message}>{state.message}</Text>
-        <Text style={s.hint}>{open ? 'Hide reasons' : 'Tap Orava to see why'}</Text>
+        <Text style={s.hint}>Tap Orava to see why ›</Text>
       </Pressable>
-
-      {open && (
-        <View style={[s.reasons, { backgroundColor: mood.bg }]}>
-          {state.reasons.map((r) => (
-            <Text key={r} style={[s.reason, { color: mood.fg }]}>
-              • {r}
-            </Text>
-          ))}
-        </View>
-      )}
 
       <Text style={s.demoLabel}>Try it: add a transaction</Text>
       <View style={s.demoRow}>
@@ -92,9 +89,7 @@ const s = StyleSheet.create({
     marginTop: 8,
     minHeight: 42,
   },
-  hint: { fontSize: 12, color: colors.faint, marginTop: 4 },
-  reasons: { borderRadius: 6, padding: 10, marginTop: 10, gap: 4 },
-  reason: { fontSize: 13.5, lineHeight: 19 },
+  hint: { fontSize: 13, color: colors.green, fontWeight: '600', marginTop: 6 },
   demoLabel: {
     fontSize: 12,
     color: colors.faint,

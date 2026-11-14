@@ -56,5 +56,15 @@ export async function login(username: string, password: string): Promise<Account
     username: users[0].username,
     txs,
     balance: rows.length ? Number(rows[0].balance_after_eur) : 0,
+    isDemo: false,
+    coverage: REAL_DATA_COVERAGE,
   };
 }
+
+/**
+ * The date range the real dataset fully covers. The README says "Oct 2024 – Sep 2026", but the
+ * exact first and last covered days have not been verified, and the last transaction date does
+ * not prove coverage. Until the data owner confirms them, this stays null and Orava does not
+ * compare months on real data.
+ */
+const REAL_DATA_COVERAGE: Account['coverage'] = null;

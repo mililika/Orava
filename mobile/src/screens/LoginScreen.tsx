@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import type { Account } from '../data/demoAccount';
+import { demoAccount, type Account } from '../data/demoAccount';
 import { login } from '../lib/api';
 import { colors, radius } from '../theme';
 
@@ -79,6 +79,17 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }
         >
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Sign in</Text>}
         </Pressable>
+
+        <Pressable
+          onPress={() => onLoggedIn(demoAccount())}
+          disabled={busy}
+          style={s.demoBtn}
+          role="button"
+          accessibilityHint="Opens the app with synthetic sample data, without signing in"
+        >
+          <Text style={s.demoBtnText}>Try demo (sample data)</Text>
+        </Pressable>
+        <Text style={s.demoNote}>Invented transactions. No real account or network needed.</Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -108,4 +119,14 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  demoBtn: {
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.green,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  demoBtnText: { color: colors.green, fontSize: 15, fontWeight: '700' },
+  demoNote: { color: colors.faint, fontSize: 12.5, textAlign: 'center', marginTop: 6 },
 });

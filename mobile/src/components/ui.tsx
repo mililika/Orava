@@ -33,20 +33,48 @@ export function Pill({
   title,
   onPress,
   variant = 'solid',
+  disabled = false,
+  selected,
+  label,
 }: {
   title: string;
   onPress: () => void;
   variant?: 'solid' | 'outline';
+  disabled?: boolean;
+  /** For toggle-style pills: announced to screen readers. */
+  selected?: boolean;
+  label?: string;
 }) {
   const outline = variant === 'outline';
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       role="button"
-      style={({ pressed }) => [s.pill, outline && s.pillOutline, pressed && { opacity: 0.75 }]}
+      accessibilityLabel={label}
+      accessibilityState={{ disabled, selected }}
+      style={({ pressed }) => [
+        s.pill,
+        outline && s.pillOutline,
+        pressed && { opacity: 0.75 },
+        disabled && s.pillDisabled,
+      ]}
     >
-      <Text style={[s.pillText, outline && { color: colors.green }]}>{title}</Text>
+      <Text
+        style={[s.pillText, outline && { color: colors.green }, disabled && s.pillTextDisabled]}
+      >
+        {title}
+      </Text>
     </Pressable>
+  );
+}
+
+/** Clear label that the app is showing invented demo data, not a real account. */
+export function DemoBadge() {
+  return (
+    <View style={s.demo} accessibilityLabel="Demo mode. Synthetic sample data, not a real account.">
+      <Text style={s.demoText}>DEMO · Synthetic sample data, not a real account</Text>
+    </View>
   );
 }
 
@@ -72,6 +100,17 @@ const s = StyleSheet.create({
   },
   pillOutline: { backgroundColor: '#fff' },
   pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  pillDisabled: { backgroundColor: '#fff', borderColor: colors.line },
+  pillTextDisabled: { color: colors.faint },
+  demo: {
+    backgroundColor: colors.warnBg,
+    borderRadius: radius.card,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#f1d3ad',
+  },
+  demoText: { color: colors.warnInk, fontSize: 12.5, fontWeight: '700', letterSpacing: 0.2 },
   secHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
