@@ -25,6 +25,9 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
   Lifestyle: { name: 'Lifestyle', icon: 'bag', tint: '#f6e6f3' },
   'Home & Tech': { name: 'Home & Tech', icon: 'screen', tint: '#e6ecef' },
   Travel: { name: 'Travel', icon: 'plane', tint: '#dff2f4' },
+  'Invest Deposit': { name: 'Investing', icon: 'acorn', tint: '#e8eedb' },
+  'Invest Withdraw': { name: 'From investments', icon: 'acorn', tint: '#e8eedb', income: true },
+  'Salary Sweep': { name: 'To another bank', icon: 'wallet', tint: '#e6ecef' },
   Salary: { name: 'Salary', icon: 'arrowIn', tint: '#d9f2df', income: true },
   'Other Income': { name: 'Other income', icon: 'arrowIn', tint: '#d9f2df', income: true },
 };

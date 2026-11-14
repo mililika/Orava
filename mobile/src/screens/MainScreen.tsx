@@ -1,6 +1,6 @@
 // Everything after sign-in: Home (with Orava's section), New transaction (the + in the transactions list) and Money health.
-// Holds the transactions the user adds on top of what was loaded, and Orava's reaction to the
-// latest one (see src/orava/scenarios.ts).
+// Holds the transactions the user adds on top of what was loaded. Orava's card on Home is Gemini's
+// read of the month (orava/overview.ts), asked again whenever the transactions change.
 
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -10,7 +10,8 @@ import { useToast } from '../components/Toast';
 import { typeFor } from '../data/categories';
 import type { Account, Transaction } from '../data/demoAccount';
 import { buildHealth } from '../orava/health';
-import { reactTo, type Reaction, type ReactionAction } from '../orava/scenarios';
+import { monthRange } from '../orava/history';
+import { useOverview } from '../orava/overview';
 import { colors, eur } from '../theme';
 import { AddTransactionScreen, type NewTx } from './AddTransactionScreen';
 import { HealthScreen } from './HealthScreen';
@@ -23,7 +24,6 @@ let seq = 0;
 export function MainScreen({ account, onLogout }: { account: Account; onLogout: () => void }) {
   const [added, setAdded] = useState<Transaction[]>([]);
   const [screen, setScreen] = useState<Screen>('home');
-  const [reaction, setReaction] = useState<Reaction | null>(null);
   const { show, toast } = useToast();
 
   // Loaded transactions the user swiped away (prototype: hidden here, not deleted in the database).
@@ -38,6 +38,10 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
     added.reduce((sum, t) => sum + t.amount, 0) -
     removed.reduce((sum, t) => sum + t.amount, 0);
   const report = useMemo(() => buildHealth(txs, balance), [txs, balance]);
+  // Gemini's overview of the newest month: asked once after login, then again each time a
+  // transaction is added or removed (cached per month, see orava/overview.ts).
+  const lastMonth = useMemo(() => monthRange(txs).last, [txs]);
+  const { overview, loading } = useOverview(account.username, lastMonth, report, true);
 
   // The dataset ends in the past, so "today" is the newest day in the data.
   // That keeps new transactions in the same month Orava is looking at.
@@ -53,42 +57,18 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
       amount: t.amount,
     };
     setAdded((prev) => [tx, ...prev]);
-    setReaction(reactTo(tx, [tx, ...txs]));
     setScreen('home');
     show(`Added: ${t.merchant} ${t.amount > 0 ? '+' : ''}${eur(t.amount)}`);
-  };
-
-  const act = (id: ReactionAction) => {
-    if (!reaction) return;
-    const tx = added.find((t) => t.id === reaction.txId);
-    const follow = (mood: Reaction['mood'], message: string) =>
-      setReaction({ txId: reaction.txId, mood, message });
-    switch (id) {
-      case 'confirm':
-        return follow('okay', 'Got it, marked as safe. I’ll remember this merchant.');
-      case 'freeze':
-        // Prototype: undo the payment as if the dispute already went through.
-        setAdded((prev) => prev.filter((t) => t.id !== reaction.txId));
-        return follow(
-          'worried',
-          `Card frozen. I’ve started a dispute for ${tx ? eur(-tx.amount) : 'the payment'}. Nothing else needed from you right now.`,
-        );
-      case 'limit':
-        return follow('happy', 'Deal! I’ll give you a gentle nudge before the next one.');
-      case 'dismiss':
-        return follow('okay', 'Fair enough, enjoy it! I’ll keep an eye on the month for you.');
-    }
   };
 
   const remove = (t: Transaction) => {
     if (added.some((a) => a.id === t.id)) setAdded((prev) => prev.filter((a) => a.id !== t.id));
     else setRemoved((prev) => [...prev, t]);
-    if (reaction?.txId === t.id) setReaction(null);
     show(`Deleted: ${t.merchant} ${t.amount > 0 ? '+' : ''}${eur(t.amount)}`);
   };
 
   const openHealth = useCallback(() => setScreen('health'), []);
-  const headerOrava = { mood: reaction?.mood ?? report.orava.mood, onPress: openHealth };
+  const headerOrava = { mood: report.orava.mood, onPress: openHealth };
   const onTab = () => setScreen('home');
 
   return (
@@ -101,7 +81,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
             orava={headerOrava}
           />
         ) : screen === 'health' ? (
-          <HealthScreen report={report} onBack={() => setScreen('home')} />
+          <HealthScreen user={account.username} report={report} onBack={() => setScreen('home')} />
         ) : (
           <>
             <AppHeader
@@ -113,10 +93,11 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
               balance={balance}
               txs={txs}
               orava={{
-                mood: reaction?.mood ?? report.orava.mood,
+                mood: report.orava.mood,
                 score: report.orava.score,
-                message: reaction?.message ?? report.orava.message,
-                actions: reaction?.actions?.map((a) => ({ ...a, onPress: () => act(a.id) })),
+                message: overview?.summary,
+                thinking: loading,
+                insight: overview,
               }}
               onOpenHealth={openHealth}
               onAdd={() => setScreen('add')}
