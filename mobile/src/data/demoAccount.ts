@@ -13,6 +13,13 @@ export interface Transaction {
   amount: number; // negative = money out
 }
 
+/** What a signed-in user sees: their transactions (newest first) and current balance. */
+export interface Account {
+  username: string;
+  txs: Transaction[];
+  balance: number;
+}
+
 /** Balance at the start of the month, before any of the transactions below. */
 export const OPENING_BALANCE = 1200;
 
@@ -80,16 +87,39 @@ export function balanceOf(txs: Transaction[]) {
   return txs.reduce((b, t) => b + t.amount, OPENING_BALANCE);
 }
 
+/** Transactions of the newest month in the list (YYYY-MM), plus the earlier ones. */
+export function splitLatestMonth(txs: Transaction[]) {
+  const latest = txs.reduce((m, t) => (t.date.slice(0, 7) > m ? t.date.slice(0, 7) : m), '');
+  return {
+    month: txs.filter((t) => t.date.slice(0, 7) === latest),
+    earlier: txs.filter((t) => t.date.slice(0, 7) !== latest),
+  };
+}
+
+/** Average monthly everyday slips over the earlier months; falls back to the demo number. */
+export function slipsBaselineOf(earlier: Transaction[]) {
+  const months = new Set(earlier.map((t) => t.date.slice(0, 7)));
+  if (months.size === 0) return SLIPS_BASELINE;
+  const total = earlier
+    .filter((t) => BASKET[t.category] === 'everydaySlips')
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  return total / months.size;
+}
+
 /** Sums a month of transactions into the snapshot Orava's logic reads. */
-export function buildSnapshot(txs: Transaction[]): MonthSnapshot {
+export function buildSnapshot(
+  txs: Transaction[],
+  balance = balanceOf(txs),
+  slipsBaseline = SLIPS_BASELINE,
+): MonthSnapshot {
   const s: MonthSnapshot = {
-    balance: balanceOf(txs),
+    balance,
     income: 0,
     mustPayRegular: 0,
     mustPaySurprises: 0,
     needs: 0,
     everydaySlips: 0,
-    everydaySlipsBaseline: SLIPS_BASELINE,
+    everydaySlipsBaseline: slipsBaseline,
   };
   for (const t of txs) {
     const key = BASKET[t.category];

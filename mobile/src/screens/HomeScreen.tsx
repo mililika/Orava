@@ -12,9 +12,10 @@ import { useToast } from '../components/Toast';
 import { Card } from '../components/ui';
 import {
   DEMO_ACTIONS,
-  SEPTEMBER,
-  balanceOf,
   buildSnapshot,
+  slipsBaselineOf,
+  splitLatestMonth,
+  type Account,
   type Transaction,
 } from '../data/demoAccount';
 import { evaluateOrava } from '../orava/logic';
@@ -28,23 +29,28 @@ const TAB_NAMES: Record<Tab, string> = {
   me: 'Me',
 };
 
-export function HomeScreen() {
-  const [txs, setTxs] = useState<Transaction[]>(SEPTEMBER);
+export function HomeScreen({ account, onLogout }: { account: Account; onLogout: () => void }) {
+  // Demo buttons add transactions on top of what was loaded from the database.
+  const [added, setAdded] = useState<Transaction[]>([]);
+  const txs = useMemo(() => [...added, ...account.txs], [added, account.txs]);
   const [tab, setTab] = useState<Tab>('home');
   const { show, toast } = useToast();
 
-  const orava = useMemo(() => evaluateOrava(buildSnapshot(txs)), [txs]);
-  const balance = balanceOf(txs);
+  const balance = account.balance + added.reduce((sum, t) => sum + t.amount, 0);
+  const orava = useMemo(() => {
+    const { month, earlier } = splitLatestMonth(txs);
+    return evaluateOrava(buildSnapshot(month, balance, slipsBaselineOf(earlier)));
+  }, [txs, balance]);
 
   const add = (t: Transaction, msg: string) => {
-    setTxs((prev) => [t, ...prev]);
+    setAdded((prev) => [t, ...prev]);
     show(msg);
   };
   const soon = (what: string) => () => show(`${what} is not part of the prototype yet`);
 
   return (
     <View style={s.screen}>
-      <AppHeader onLock={soon('Lock')} onChat={soon('Messages')} />
+      <AppHeader onLock={onLogout} onChat={soon('Messages')} />
 
       <ScrollView style={s.scroll} contentContainerStyle={{ flexGrow: 1 }}>
         {tab === 'home' ? (
@@ -58,7 +64,7 @@ export function HomeScreen() {
                   jacket: () => add(DEMO_ACTIONS.jacket(), 'Added: new jacket −€120'),
                   sideGig: () => add(DEMO_ACTIONS.sideGig(), 'Added: side gig +€400'),
                   reset: () => {
-                    setTxs(SEPTEMBER);
+                    setAdded([]);
                     show('Back to the start of the demo');
                   },
                 }}
@@ -67,7 +73,7 @@ export function HomeScreen() {
               <AccountsSection balance={balance} onPress={soon('Account details')} />
               <TransactionsSection txs={txs} />
               <Text style={s.foot}>
-                Prototype with demo data shaped like the S-Bank Junction 2026 dataset.
+                Signed in as {account.username}. Data from the S-Bank Junction 2026 dataset.
               </Text>
             </View>
           </>

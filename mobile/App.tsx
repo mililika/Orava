@@ -1,18 +1,26 @@
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
+import type { Account } from './src/data/demoAccount';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { colors } from './src/theme';
 
 export default function App() {
+  const [account, setAccount] = useState<Account | null>(null);
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={s.outside} edges={['top', 'bottom']}>
         {/* On a wide browser window, keep the app phone-sized in the middle. */}
         <View style={s.phone}>
-          <HomeScreen />
+          {account ? (
+            <HomeScreen account={account} onLogout={() => setAccount(null)} />
+          ) : (
+            <LoginScreen onLoggedIn={setAccount} />
+          )}
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
