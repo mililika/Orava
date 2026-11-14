@@ -1,7 +1,8 @@
 // The contract between the money data and Orava.
 // The UI only ever reads an OravaState; the logic only ever reads a MonthSnapshot.
 
-export type Mood = 'thriving' | 'content' | 'curious' | 'worried' | 'alarmed';
+/** The four moods of the squirrel design. */
+export type Mood = 'happy' | 'okay' | 'worried' | 'alert';
 
 export type Basket = 'mustPayRegular' | 'mustPaySurprises' | 'everydaySlips' | 'needs' | 'income';
 

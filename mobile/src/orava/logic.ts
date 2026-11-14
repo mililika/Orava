@@ -25,7 +25,7 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
   if (s.balance < 0) {
     return {
       ...base,
-      mood: 'alarmed',
+      mood: 'alert',
       message: `Your balance is ${eur(s.balance)} below zero. Let’s look at it before payday.`,
       reasons: ['Balance went below zero.'],
     };
@@ -33,7 +33,7 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
   if (kept < 0) {
     return {
       ...base,
-      mood: 'alarmed',
+      mood: 'alert',
       message: `You’re spending ${eur(kept)} more than you earn this month.`,
       reasons: ['Spending is higher than income this month.'],
     };
@@ -55,7 +55,7 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
   if (slipRatio >= 1.15) {
     return {
       ...base,
-      mood: 'curious',
+      mood: 'worried',
       message: `Something changed: everyday spending is ${slipsOverPct}% above your usual. Want to look?`,
       reasons: [`Everyday slips are ${slipsOverPct}% above your usual (15–40% range).`],
     };
@@ -63,14 +63,14 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
   if (savingRate >= 0.2) {
     return {
       ...base,
-      mood: 'thriving',
+      mood: 'happy',
       message: `You’re keeping ${ratePct}% of your income. Your nut stash is growing nicely.`,
       reasons: [`Saving rate is ${ratePct}%, at least 20%.`, 'Everyday slips are within usual.'],
     };
   }
   return {
     ...base,
-    mood: 'content',
+    mood: 'okay',
     message: `You’re on track. About ${eur(kept)} stays with you this month.`,
     reasons: [`Saving rate is ${ratePct}% (between 5% and 20%).`, 'No big changes in spending.'],
   };

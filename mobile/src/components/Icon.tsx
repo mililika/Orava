@@ -13,7 +13,24 @@ const PATHS = {
   check: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.7 2.7L16 9.8',
   doc: 'M6 3h9l4 4v14H6zM9 11h7M9 15h7M9 7h3',
   chevron: 'M9 6l6 6-6 6',
+  back: 'M15 6l-6 6 6 6',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  close: 'M6 6l12 12M18 6 6 18',
   acorn: 'M12 21c-3.5 0-6-2.8-6-7h12c0 4.2-2.5 7-6 7zM5 14a7 5 0 0 1 14 0M12 9V6',
+  pulse: 'M3 12h4l2-5 4 10 2-5h6',
+  // Categories
+  bolt: 'M13 3 5 13h6l-1 8 8-10h-6z',
+  cart: 'M3 4h2l2.4 11h10.2L20 8H6.2M9 20h.01M17 20h.01',
+  fork: 'M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 1-3 4-3 7h3v11',
+  cup: 'M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M11 3v3',
+  bus: 'M6 4h12a1 1 0 0 1 1 1v12H5V5a1 1 0 0 1 1-1zM5 11h14M8 17v3M16 17v3M8 14h.01M16 14h.01',
+  heart: 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z',
+  ticket: 'M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4zM14 7v10',
+  bag: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2',
+  screen: 'M3 5h18v11H3zM9 20h6M12 16v4',
+  plane: 'M10 21l2-7-6-2-2 2-1-1 2-3-1-3 1-1 3 2 6-2-1-6h2l3 7 4 1v2l-4 1-3 7z',
+  arrowIn: 'M12 4v12M7 11l5 5 5-5M5 20h14',
+  dots: 'M6 12h.01M12 12h.01M18 12h.01',
 };
 
 export type IconName = keyof typeof PATHS;
@@ -34,7 +51,7 @@ export function Icon({
       <Path
         d={PATHS[name]}
         stroke={color}
-        strokeWidth={strokeWidth}
+        strokeWidth={name === 'dots' ? 3 : strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
