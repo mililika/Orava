@@ -13,7 +13,7 @@ interface Props {
   username: string;
   balance: number;
   txs: Transaction[];
-  orava: { mood: Mood; score: number; message: string; actions?: OravaAction[] };
+  orava: { mood: Mood; score: number | null; message: string; actions?: OravaAction[] };
   onOpenHealth: () => void;
   onAdd: () => void;
   onDelete: (t: Transaction) => void;

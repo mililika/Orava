@@ -1,13 +1,13 @@
-// "Ask Orava": a small chat at the bottom of Money health. Answers come from orava/chat.ts.
+// "Ask Orava": an input pinned to the bottom of Money health. Answers open in a panel above it.
+// Answers come from orava/chat.ts.
 
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { answer, SUGGESTIONS } from '../orava/chat';
 import type { HealthReport } from '../orava/health';
 import { colors, radius } from '../theme';
 import { Icon } from './Icon';
-import { Card } from './ui';
 
 interface Msg {
   from: 'me' | 'orava';
@@ -15,10 +15,10 @@ interface Msg {
 }
 
 export function OravaChat({ report }: { report: HealthReport }) {
-  const [msgs, setMsgs] = useState<Msg[]>([
-    { from: 'orava', text: 'Hi! Ask me anything about your money this month.' },
-  ]);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
+  const [focused, setFocused] = useState(false);
+  const list = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const send = (text: string) => {
     const q = text.trim();
@@ -32,17 +32,40 @@ export function OravaChat({ report }: { report: HealthReport }) {
   };
 
   return (
-    <Card style={s.card}>
-      <View style={s.list}>
-        {msgs.map((m, i) => (
-          <View key={i} style={[s.bubble, m.from === 'me' ? s.me : s.orava]}>
-            <Text style={[s.text, m.from === 'me' && { color: '#fff' }]}>{m.text}</Text>
+    <View style={s.dock}>
+      {msgs.length ? (
+        <View style={s.panel}>
+          <View style={s.panelHead}>
+            <Text style={s.panelTitle}>Orava</Text>
+            <Pressable
+              onPress={() => setMsgs([])}
+              role="button"
+              accessibilityLabel="Close chat"
+              hitSlop={10}
+            >
+              <Icon name="close" size={18} color={colors.ink2} strokeWidth={2.2} />
+            </Pressable>
           </View>
-        ))}
-      </View>
-
-      {msgs.length === 1 && (
-        <View style={s.chips}>
+          <ScrollView
+            ref={list}
+            style={s.list}
+            contentContainerStyle={{ gap: 8 }}
+            onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
+          >
+            {msgs.map((m, i) => (
+              <View key={i} style={[s.bubble, m.from === 'me' ? s.me : s.orava]}>
+                <Text style={[s.text, m.from === 'me' && { color: '#fff' }]}>{m.text}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      ) : focused ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chips}
+          keyboardShouldPersistTaps="always"
+        >
           {SUGGESTIONS.map((q) => (
             <Pressable
               key={q}
@@ -53,15 +76,17 @@ export function OravaChat({ report }: { report: HealthReport }) {
               <Text style={s.chipText}>{q}</Text>
             </Pressable>
           ))}
-        </View>
-      )}
+        </ScrollView>
+      ) : null}
 
       <View style={s.inputRow}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
           onSubmitEditing={() => send(draft)}
-          placeholder="Ask Orava about your money…"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 150)}
+          placeholder="Ask Orava…"
           placeholderTextColor={colors.faint}
           returnKeyType="send"
           style={s.input}
@@ -76,18 +101,28 @@ export function OravaChat({ report }: { report: HealthReport }) {
           <Icon name="chevron" color="#fff" size={20} strokeWidth={2.4} />
         </Pressable>
       </View>
-    </Card>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  card: { gap: 12 },
-  list: { gap: 8 },
+  dock: {
+    backgroundColor: colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  panel: { maxHeight: 280, gap: 6 },
+  panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  panelTitle: { fontSize: 13, fontWeight: '700', color: colors.green },
+  list: { flexGrow: 0 },
   bubble: { maxWidth: '85%', borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12 },
   orava: { alignSelf: 'flex-start', backgroundColor: colors.mint },
   me: { alignSelf: 'flex-end', backgroundColor: colors.green },
   text: { fontSize: 14, lineHeight: 19, color: colors.ink },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chips: { gap: 8 },
   chip: {
     borderRadius: radius.pill,
     borderWidth: 1.5,
@@ -99,18 +134,17 @@ const s = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     flex: 1,
-    height: 44,
+    height: 42,
     borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.line,
+    backgroundColor: colors.mint,
     paddingHorizontal: 16,
     fontSize: 15,
     color: colors.ink,
   },
   send: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: colors.green,
     alignItems: 'center',
     justifyContent: 'center',

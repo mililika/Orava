@@ -1,81 +1,71 @@
-// Orava's brain. This is the ONE file to change to make the mood smarter.
+// Orava's voice: turns the score into a mood and one sentence.
 //
-// It is a pure function: MonthSnapshot in, OravaState out. No UI, no network,
-// no React. That makes it easy to unit test, and easy to move to the backend
-// later without touching any screen.
-//
-// Rules are checked top to bottom; the first match wins. Orava is never angry
-// or shaming: even the worst state reads as concern, not blame.
+// The mood follows the Money health score (score.ts): 85+ doing great, 60–84 steady,
+// 35–59 heads up, under 35 needs attention, and a balance below zero always needs attention.
+// Orava talks about the pillar that costs the most points, because that is where a change
+// helps most. Orava is never angry or shaming: even the worst state reads as concern.
 
-import type { MonthSnapshot, OravaState } from './types';
+import type { Pillar, Score } from './score';
+import type { OravaState } from './types';
 
-const eur = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-US')}`;
+const eur = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-GB')}`;
 
-export function evaluateOrava(s: MonthSnapshot): OravaState {
-  const spending = s.mustPayRegular + s.mustPaySurprises + s.needs + s.everydaySlips;
-  const kept = s.income - spending;
-  const savingRate = s.income > 0 ? kept / s.income : 0;
-  const slipRatio = s.everydaySlipsBaseline > 0 ? s.everydaySlips / s.everydaySlipsBaseline : 1;
-  const slipsOverPct = Math.round((slipRatio - 1) * 100);
-  const ratePct = Math.round(savingRate * 100);
-
-  const score = clamp(Math.round(40 + savingRate * 250 - Math.max(0, slipRatio - 1) * 40), 0, 100);
-  const base = { score, savingRate };
-
-  if (s.balance < 0) {
-    return {
-      ...base,
-      mood: 'alert',
-      message: `Your balance is ${eur(s.balance)} below zero. Let’s look at it before payday.`,
-      reasons: ['Balance went below zero.'],
-    };
+/** What to say about one pillar when it is the weakest. */
+function tip(p: Pillar, s: Score): string {
+  switch (p.key) {
+    case 'kept':
+      return p.value < 0
+        ? `you’re spending more than comes in (${p.shown} left over in 3 months)`
+        : `${p.shown} of your income is left over; 10% is a great first goal, 20% is the target`;
+    case 'buffer':
+    case 'cushion':
+      return `your savings buffer covers ${p.shown} of spending; 2 months is the safe zone`;
+    case 'overdraft':
+      return `your balance dipped below zero in ${p.shown} of the last 3`;
+    case 'slips':
+      return `flexible spending takes ${p.shown} of your income; under 20% leaves room to save`;
+    case 'fixed':
+      return `rent and bills take ${p.shown} of your income, so keep flexible spending lean`;
+    case 'within':
+      return `you spend ${eur(s.perMonth.spending)} a month here but only ${eur(s.perMonth.income - s.perMonth.swept)} stays after the transfer`;
+    case 'idle':
+      return `${eur(s.idle)} has sat untouched here for 3 months; it could be working for you`;
   }
-  if (kept < 0) {
-    return {
-      ...base,
-      mood: 'alert',
-      message: `You’re spending ${eur(kept)} more than you earn this month.`,
-      reasons: ['Spending is higher than income this month.'],
-    };
-  }
-  if (savingRate < 0.05 || slipRatio > 1.4) {
-    return {
-      ...base,
-      mood: 'worried',
-      message:
-        savingRate < 0.05
-          ? `Only ${eur(kept)} is left after this month’s spending. Let’s find room together.`
-          : `Everyday spending is ${slipsOverPct}% above your usual. That adds up fast.`,
-      reasons: [
-        savingRate < 0.05 ? `Saving rate is ${ratePct}%, under 5%.` : '',
-        slipRatio > 1.4 ? `Everyday slips are ${slipsOverPct}% above your usual.` : '',
-      ].filter(Boolean),
-    };
-  }
-  if (slipRatio >= 1.15) {
-    return {
-      ...base,
-      mood: 'worried',
-      message: `Something changed: everyday spending is ${slipsOverPct}% above your usual. Want to look?`,
-      reasons: [`Everyday slips are ${slipsOverPct}% above your usual (15–40% range).`],
-    };
-  }
-  if (savingRate >= 0.2) {
-    return {
-      ...base,
-      mood: 'happy',
-      message: `You’re keeping ${ratePct}% of your income. Your nut stash is growing nicely.`,
-      reasons: [`Saving rate is ${ratePct}%, at least 20%.`, 'Everyday slips are within usual.'],
-    };
-  }
-  return {
-    ...base,
-    mood: 'okay',
-    message: `You’re on track. About ${eur(kept)} stays with you this month.`,
-    reasons: [`Saving rate is ${ratePct}% (between 5% and 20%).`, 'No big changes in spending.'],
-  };
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+export function evaluateOrava(s: Score, balance: number): OravaState {
+  const reasons = s.pillars.map(
+    (p) => `${p.label}: ${p.shown} → ${Math.round(p.points)}/${p.maxPoints} points.`,
+  );
+  const weakest = [...s.pillars].sort(
+    (a, b) => b.maxPoints - b.points - (a.maxPoints - a.points),
+  )[0];
+  const base = { score: s.score, reasons };
+
+  if (balance < 0) {
+    return {
+      ...base,
+      mood: 'alert',
+      message: `Your balance is ${eur(balance)} below zero. Let’s look at it before payday.`,
+    };
+  }
+  const t = tip(weakest, s);
+  const happy =
+    s.variant === 'pocket'
+      ? `Your spending account is in great shape: you spend within what stays here and nothing just sits idle.`
+      : `${s.pillars.find((p) => p.key === 'kept')!.shown} of your income is left over, with ${s.pillars.find((p) => p.key === 'buffer')!.shown} in your savings buffer.`;
+  switch (s.mood) {
+    case 'happy':
+      return { ...base, mood: 'happy', message: happy };
+    case 'okay':
+      return { ...base, mood: 'okay', message: `Steady! One thing to grow: ${t}.` };
+    case 'worried':
+      return { ...base, mood: 'worried', message: `Heads up: ${t}. Want to look together?` };
+    default:
+      return {
+        ...base,
+        mood: 'alert',
+        message: `Money is tight right now: ${t}. Small steps help most.`,
+      };
+  }
 }

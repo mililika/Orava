@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { demoAccount, type Account } from '../data/demoAccount';
+import { demoAccount, pocketDemoAccount, type Account } from '../data/demoAccount';
 import { login } from '../lib/api';
 import { colors, radius } from '../theme';
 
@@ -88,6 +88,14 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }
         >
           <Text style={s.demoText}>Continue with demo data</Text>
         </Pressable>
+        <Pressable
+          onPress={() => onLoggedIn(pocketDemoAccount())}
+          disabled={busy}
+          style={s.demoAlt}
+          role="button"
+        >
+          <Text style={s.demoAltText}>Demo: salary goes to another bank</Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -119,4 +127,6 @@ const s = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   demo: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   demoText: { color: colors.green, fontSize: 14.5, fontWeight: '600' },
+  demoAlt: { paddingVertical: 6, alignItems: 'center' },
+  demoAltText: { color: colors.ink2, fontSize: 13, fontWeight: '600' },
 });

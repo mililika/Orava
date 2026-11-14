@@ -30,7 +30,8 @@ export function AppHeader({
         )}
       </View>
       {title ? <Text style={s.title}>{title}</Text> : <View style={{ flex: 1 }} />}
-      <View style={[s.side, { alignItems: 'flex-end' }]}>{right}
+      <View style={[s.side, { alignItems: 'flex-end' }]}>
+        {right}
         {orava && (
           <Pressable
             onPress={orava.onPress}

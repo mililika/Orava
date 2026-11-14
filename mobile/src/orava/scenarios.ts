@@ -90,7 +90,7 @@ export function reactTo(tx: Transaction, history: Transaction[]): Reaction | nul
       txId: tx.id,
       mood: 'happy',
       who: 'Orava · doing great',
-      message: `Nice, +${euro(tx.amount)}! Tucking even a quarter of it (${euro(tx.amount / 4)}) away would grow your safety buffer.`,
+      message: `Nice, +${euro(tx.amount)}! Tucking even a quarter of it (${euro(tx.amount / 4)}) away would grow your savings buffer.`,
     };
   }
 

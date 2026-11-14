@@ -24,7 +24,8 @@ export function OravaCard({
   onOpen,
 }: {
   mood: Mood;
-  score: number;
+  /** Null when there is no score (not the customer's main bank). */
+  score: number | null;
   message: string;
   actions?: OravaAction[];
   onOpen: () => void;
@@ -34,7 +35,7 @@ export function OravaCard({
     <Pressable
       onPress={onOpen}
       role="button"
-      accessibilityLabel={`Orava, ${m.name}, money health score ${score}. Tap to open money health.`}
+      accessibilityLabel={`Orava, ${m.name}${score == null ? '' : `, money health score ${score}`}. Tap to open money health.`}
       style={({ pressed }) => [s.card, pressed && { opacity: 0.92 }]}
     >
       <View style={s.mascot}>
@@ -43,7 +44,9 @@ export function OravaCard({
       <View style={s.text}>
         <View style={s.footer}>
           <View style={[s.score, { backgroundColor: m.bg }]}>
-            <Text style={[s.scoreText, { color: m.fg }]}>{score}/100</Text>
+            <Text style={[s.scoreText, { color: m.fg }]}>
+              {score == null ? 'Partial view' : `${score}/100`}
+            </Text>
           </View>
           {!actions?.length && (
             <View style={s.hint}>
