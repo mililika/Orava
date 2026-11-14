@@ -16,6 +16,7 @@ import {
 import { AppHeader } from '../components/AppChrome';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, categoryInfo } from '../data/categories';
+import type { Mood } from '../orava/types';
 import { colors, radius } from '../theme';
 
 export interface NewTx {
@@ -28,9 +29,11 @@ export interface NewTx {
 export function AddTransactionScreen({
   onSave,
   onClose,
+  orava,
 }: {
   onSave: (t: NewTx) => void;
   onClose: () => void;
+  orava?: { mood: Mood; onPress: () => void };
 }) {
   const [kind, setKind] = useState<'out' | 'in'>('out');
   const [amount, setAmount] = useState('');
@@ -62,6 +65,7 @@ export function AddTransactionScreen({
       <AppHeader
         title="New transaction"
         left={{ icon: 'close', label: 'Close', onPress: onClose }}
+        orava={orava}
       />
       <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
         <View style={s.segment}>

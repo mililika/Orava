@@ -101,7 +101,18 @@ const CFG: Record<
   },
 };
 
-export function Mascot({ mood, size = 150, hop = 0 }: { mood: Mood; size?: number; hop?: number }) {
+export function Mascot({
+  mood,
+  size = 150,
+  hop = 0,
+  ground = true,
+}: {
+  mood: Mood;
+  size?: number;
+  hop?: number;
+  /** Soft shadow under the feet. Turn off on a white background (it reads as grey). */
+  ground?: boolean;
+}) {
   const w = size;
   const h = (size * VB_H) / VB_W;
   const k = size / VB_W;
@@ -232,9 +243,10 @@ export function Mascot({ mood, size = 150, hop = 0 }: { mood: Mood; size?: numbe
             { scale: loop.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.15] }) },
           ]),
         })}
-      {layer(<Ellipse cx={104} cy={216} rx={54} ry={7} fill={C.ink} opacity={0.12} />, {
-        transform: shadow,
-      })}
+      {ground &&
+        layer(<Ellipse cx={104} cy={216} rx={54} ry={7} fill={C.ink} opacity={0.12} />, {
+          transform: shadow,
+        })}
 
       <Animated.View style={[StyleSheet.absoluteFill, { transform: bob }]} pointerEvents="none">
         {layer(<Tail />, { transform: tail })}

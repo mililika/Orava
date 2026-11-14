@@ -11,28 +11,18 @@ import {
 import { evaluateOrava } from './logic';
 import type { OravaState } from './types';
 
-export type Status = 'good' | 'watch' | 'alert';
+/** Tag colour: good = green, neutral = gray, warn = orange, bad = red (a big problem). */
+export type Tone = 'good' | 'neutral' | 'warn' | 'bad';
 
-export interface Tile {
-  key: 'month' | 'today' | 'saved' | 'buffer';
-  /** One or two words. */
+/** One small score card under Orava's verdict. */
+export interface Stat {
+  key: 'safe' | 'kept' | 'slips';
   label: string;
   /** Big number, already formatted. */
   value: string;
-  /** Small unit after the value, e.g. "/100". */
-  unit?: string;
-  /** How far toward a healthy target, 0–1 (drawn as a thin bar). */
-  progress: number;
-  status: Status;
-  /** One sentence, shown only when the tile is tapped. */
-  note: string;
-}
-
-export interface SpendSlice {
-  category: string;
-  amount: number;
-  /** Share of this month's spending, 0–1. */
-  share: number;
+  /** Small line under the value. */
+  sub: string;
+  tag: { text: string; tone: Tone };
 }
 
 /** Where the month's income goes, in four buckets (Bills, Essentials, Extras, Saved). */
@@ -75,19 +65,14 @@ export interface HealthReport {
   income: number;
   spending: number;
   orava: OravaState;
-  tiles: Tile[];
+  stats: Stat[];
   safe: SafeToSpend;
   split: SplitPart[];
-  /** Spending by category, biggest first; small ones folded into "Other". */
-  breakdown: SpendSlice[];
 }
 
 const SAVINGS_GOAL = 0.1;
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const money = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-GB')}`;
-const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
-const statusOf = (n: number, good: number, watch: number): Status =>
-  n >= good ? 'good' : n >= watch ? 'watch' : 'alert';
 
 export function buildHealth(txs: Transaction[], balance: number): HealthReport {
   const { month, earlier } = splitLatestMonth(txs);
@@ -100,55 +85,51 @@ export function buildHealth(txs: Transaction[], balance: number): HealthReport {
   const kept = income - spending;
   const savingRate = income > 0 ? kept / income : 0;
 
-  // Buffer: how many months the balance would last at the usual monthly spending.
-  const avgSpend = averageMonthlySpending(txs) || spending;
-  const bufferMonths = avgSpend > 0 ? Math.max(0, balance) / avgSpend : 0;
-
   const safe = safeToSpend(month, earlier, snap.income, snap.mustPayRegular, spending);
-  const daily = dailyScore(safe.today.budget, safe.today.spent);
+  const slipsRatio =
+    snap.everydaySlipsBaseline > 0 ? snap.everydaySlips / snap.everydaySlipsBaseline : 1;
+  const slipsPct = Math.round((slipsRatio - 1) * 100);
 
-  const tiles: Tile[] = [
+  const weekDays = Math.min(7, safe.daysLeft);
+  const weekSafe = (Math.max(0, safe.left) * weekDays) / Math.max(1, safe.daysLeft);
+  const short = safe.goal - safe.forecastKept;
+
+  const stats: Stat[] = [
     {
-      key: 'month',
-      label: 'Month',
-      value: String(orava.score),
-      unit: '/100',
-      progress: orava.score / 100,
-      status: statusOf(orava.score, 70, 40),
-      note: 'Your health score for the month: how much you keep, and whether extras are above your usual.',
+      key: 'safe',
+      label: 'Safe to spend',
+      value: money(weekSafe),
+      sub: safe.daysLeft <= 7 ? 'rest of the month' : 'this week',
+      tag:
+        safe.left < 0
+          ? { text: 'Over', tone: 'bad' }
+          : short > 0
+            ? { text: 'Tight', tone: 'warn' }
+            : { text: 'Comfortable', tone: 'good' },
     },
     {
-      key: 'today',
-      label: 'Today',
-      value: String(daily),
-      unit: '/100',
-      progress: daily / 100,
-      status: statusOf(daily, 70, 40),
-      note:
-        safe.today.left >= 0
-          ? `Today you spent ${money(safe.today.spent)} of a safe ${money(safe.today.budget)}.`
-          : `Today you spent ${money(safe.today.spent)}, ${money(safe.today.left)} over a safe ${money(safe.today.budget)}.`,
+      key: 'kept',
+      label: 'Kept',
+      value: income > 0 ? pct(savingRate) : '–',
+      sub: 'of income',
+      tag:
+        kept < 0
+          ? { text: 'Overspent', tone: 'bad' }
+          : savingRate >= 0.1
+            ? { text: 'On track', tone: 'good' }
+            : { text: 'Low', tone: 'warn' },
     },
     {
-      key: 'saved',
-      label: 'Saved',
-      value: `${kept < 0 ? '−' : ''}${money(kept)}`,
-      unit: income > 0 ? pct(savingRate) : undefined,
-      progress: clamp01(savingRate / 0.2),
-      status: savingRate >= 0.1 ? 'good' : savingRate >= 0 ? 'watch' : 'alert',
-      note:
-        income <= 0
-          ? 'No income arrived this month yet.'
-          : `Income minus spending so far this month. Keeping 10–20% is a healthy habit.`,
-    },
-    {
-      key: 'buffer',
-      label: 'Buffer',
-      value: bufferMonths.toFixed(1),
-      unit: 'months',
-      progress: clamp01(bufferMonths / 3),
-      status: statusOf(bufferMonths, 3, 1),
-      note: 'How long your balance would last at your usual spending. Aim for 3 months.',
+      key: 'slips',
+      label: 'Everyday slips',
+      value: money(snap.everydaySlips),
+      sub: `${slipsPct < 0 ? '−' : slipsPct > 0 ? '+' : ''}${Math.abs(slipsPct)}% vs usual`,
+      tag:
+        slipsRatio > 1.4
+          ? { text: 'Way above', tone: 'bad' }
+          : slipsRatio >= 1.15
+            ? { text: 'Above usual', tone: 'warn' }
+            : { text: 'Usual', tone: 'neutral' },
     },
   ];
 
@@ -157,10 +138,9 @@ export function buildHealth(txs: Transaction[], balance: number): HealthReport {
     income,
     spending,
     orava,
-    tiles,
+    stats,
     safe,
     split: splitOf(snap, income, spending),
-    breakdown: breakdownOf(out, spending),
   };
 }
 
@@ -227,15 +207,6 @@ function safeToSpend(
   };
 }
 
-/** 100 = spent nothing today, 70 = spent exactly the safe amount, 0 = twice the safe amount. */
-function dailyScore(budget: number, spent: number) {
-  if (spent <= 0) return budget > 0 ? 100 : 50;
-  if (budget <= 0) return 0;
-  const r = spent / budget;
-  const score = r <= 1 ? 100 - 30 * r : 70 - 70 * (r - 1);
-  return Math.round(Math.max(0, Math.min(100, score)));
-}
-
 function splitOf(
   snap: ReturnType<typeof buildSnapshot>,
   income: number,
@@ -254,32 +225,6 @@ function splitOf(
     { key: 'saved', label: 'Saved', amount: saved },
   ];
   return parts.map((p) => ({ ...p, share: p.amount / base }));
-}
-
-const MAX_SLICES = 7;
-
-function breakdownOf(out: Transaction[], spending: number): SpendSlice[] {
-  const by = new Map<string, number>();
-  for (const t of out) by.set(t.category, (by.get(t.category) ?? 0) - t.amount);
-  const sorted = [...by.entries()]
-    .map(([category, amount]) => ({ category, amount, share: spending ? amount / spending : 0 }))
-    .sort((a, b) => b.amount - a.amount);
-  if (sorted.length <= MAX_SLICES) return sorted;
-  const top = sorted.slice(0, MAX_SLICES - 1);
-  const rest = sorted.slice(MAX_SLICES - 1).reduce((s, x) => s + x.amount, 0);
-  return [...top, { category: 'Other', amount: rest, share: spending ? rest / spending : 0 }];
-}
-
-/** Average spending of the last (up to) 3 months in the data. */
-function averageMonthlySpending(txs: Transaction[]) {
-  const byMonth = new Map<string, number>();
-  for (const t of txs) {
-    if (t.amount >= 0) continue;
-    const m = t.date.slice(0, 7);
-    byMonth.set(m, (byMonth.get(m) ?? 0) - t.amount);
-  }
-  const last = [...byMonth.entries()].sort(([a], [b]) => (a < b ? 1 : -1)).slice(0, 3);
-  return last.length ? last.reduce((s, [, v]) => s + v, 0) / last.length : 0;
 }
 
 function monthName(date?: string) {

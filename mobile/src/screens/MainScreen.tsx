@@ -1,12 +1,11 @@
-// Everything after sign-in: Home, New transaction (the Pay tab), Money health, and the floating Orava.
+// Everything after sign-in: Home (with Orava's section), New transaction (the + in the transactions list) and Money health.
 // Holds the transactions the user adds on top of what was loaded, and Orava's reaction to the
 // latest one (see src/orava/scenarios.ts).
 
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AppHeader, BottomNav, type Tab } from '../components/AppChrome';
-import { FloatingOrava } from '../components/FloatingOrava';
+import { AppHeader, BottomNav } from '../components/AppChrome';
 import { useToast } from '../components/Toast';
 import { typeFor } from '../data/categories';
 import type { Account, Transaction } from '../data/demoAccount';
@@ -89,42 +88,42 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
   };
 
   const openHealth = useCallback(() => setScreen('health'), []);
-  const onTab = (t: Tab) => setScreen(t === 'pay' ? 'add' : 'home');
+  const headerOrava = { mood: reaction?.mood ?? report.orava.mood, onPress: openHealth };
+  const onTab = () => setScreen('home');
 
   return (
     <View style={s.screen}>
       <View style={{ flex: 1 }}>
         {screen === 'add' ? (
-          <AddTransactionScreen onSave={save} onClose={() => setScreen('home')} />
+          <AddTransactionScreen
+            onSave={save}
+            onClose={() => setScreen('home')}
+            orava={headerOrava}
+          />
         ) : screen === 'health' ? (
           <HealthScreen report={report} onBack={() => setScreen('home')} />
         ) : (
           <>
-            <AppHeader left={{ icon: 'lock', label: 'Sign out', onPress: onLogout }} />
+            <AppHeader
+              left={{ icon: 'lock', label: 'Sign out', onPress: onLogout }}
+              orava={headerOrava}
+            />
             <HomeScreen
               username={account.username}
               balance={balance}
               txs={txs}
-              month={{
-                label: report.period.split(' ')[0],
-                income: report.income,
-                spending: report.spending,
+              orava={{
+                mood: reaction?.mood ?? report.orava.mood,
+                score: report.orava.score,
+                message: reaction?.message ?? report.orava.message,
+                actions: reaction?.actions?.map((a) => ({ ...a, onPress: () => act(a.id) })),
               }}
+              onOpenHealth={openHealth}
               onAdd={() => setScreen('add')}
               onDelete={remove}
             />
           </>
         )}
-        <FloatingOrava
-          mood={reaction?.mood ?? report.orava.mood}
-          who={reaction?.who}
-          message={reaction?.message ?? report.orava.message}
-          actions={reaction?.actions?.map((a) => ({ ...a, onPress: () => act(a.id) }))}
-          greeting={`Hi ${account.username}! I’m Orava.`}
-          onOpen={openHealth}
-          onQuiet={() => setReaction(null)}
-          hidden={screen !== 'home'}
-        />
       </View>
       {screen !== 'add' && <BottomNav tab="home" onChange={onTab} />}
       {toast}
