@@ -26,7 +26,8 @@ def install_routes(app, settings: Settings, engine: DataEngine) -> None:
             answer = ChatService(settings, engine, GeminiClient(settings)).ask(
                 request.question,
                 request.history,
+                request.money_summary,
             )
         except Exception:
-            raise HTTPException(status_code=503, detail="The analysis service is temporarily unavailable.") from None
+            raise HTTPException(status_code=503, detail="Ask Orava is temporarily unavailable.") from None
         return ChatResponse(answer=answer, data_status=engine.status)

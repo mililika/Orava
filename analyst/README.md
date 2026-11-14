@@ -1,6 +1,6 @@
-# Orava Analyst Demo
+# Ask Orava API
 
-A local-only API service for the Historical Analyst screen inside Orava. It does not connect to live bank systems. FastAPI and DuckDB query the Junction CSVs; the official Google Gen AI SDK sends bounded results to Gemini using a GCP Gemini Enterprise Agent Platform Express Mode key. The customer-facing UI lives in `mobile/src/screens/AnalystScreen.tsx` and uses the Orava app's existing components and theme.
+A local-only API service for Ask Orava. It does not connect to live bank systems. FastAPI and DuckDB query the Junction CSVs; the official Google Gen AI SDK sends bounded historical query results and current health-summary aggregates to Gemini using a GCP Gemini Enterprise Agent Platform Express Mode key. The customer-facing chat lives inside Money health in `mobile/src/components/OravaChat.tsx` and uses the Orava app's existing components and theme.
 
 ## Run
 
@@ -15,7 +15,7 @@ Copy-Item .env.example .env
 
 Create an API key for [Gemini Enterprise Agent Platform Express Mode](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/start/express-mode/express-mode-api-quickstart) in Google Cloud, then replace `GEMINI_API_KEY=replace-me` in `.env`. Google currently marks Express Mode as Preview. Startup fails with a clear message when the key is absent or still the placeholder. Never put the key in the web client. This uses the GCP-managed Express Mode key, not a Gemini Developer API (AI Studio) key and not an API key for the standard ADC-authenticated Vertex AI endpoint. The example points `DATA_DIR` to the inspected upstream checkout at `../_source_inspection`; for a fresh checkout, put the CSVs in `analyst/data/` and change `DATA_DIR=./data`. Start the API from this folder with `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`.
 
-In a second terminal at the repository root, copy `mobile/.env.example` to `mobile/.env`, set `EXPO_PUBLIC_ANALYST_ENABLED=true` and `EXPO_PUBLIC_ANALYST_API_URL=http://127.0.0.1:8000`, then run `npm run web`. Open Orava's Home screen and select **Historical analyst**. Keep the API bound to localhost for this unauthenticated demo. For a phone on another device, localhost will refer to that device; a reachable HTTPS backend with authentication is needed before exposing this service beyond the local preview.
+In a second terminal at the repository root, copy `mobile/.env.example` to `mobile/.env` and set `EXPO_PUBLIC_ORAVA_API_URL=http://127.0.0.1:8000`, then run `npm run web`. Open **Money health** from Home and use the existing **Ask Orava** chat. Keep the API bound to localhost for this unauthenticated demo. For a phone on another device, localhost will refer to that device; a reachable HTTPS backend with authentication is needed before exposing this service beyond the local preview.
 
 `GEMINI_MODEL` defaults to `gemini-3.8-flash`; set it to a model available to the GCP project if needed. Set `MAX_OUTPUT_TOKENS`, `REQUEST_TIMEOUT_SECONDS`, and `MAX_TOOL_ITERATIONS` to bound output, requests, and the manual function-calling loop.
 
@@ -35,8 +35,8 @@ The app expects source names as listed in the upstream README. It preserves colu
 | `app/privacy/` | Identifier masking and model payload minimization |
 | `app/llm/` | Google Gen AI client wrapper, Gemini schema translation, and bounded function-calling loop |
 | `app/api/` | Thin typed HTTP routes with Expo web CORS allowlist |
-| `mobile/src/screens/AnalystScreen.tsx` | Orava-native analyst UI with loading, error, retry, and conversation states |
-| `mobile/src/lib/analyst.ts` | Typed client for status and chat requests; no API key or CSV access |
+| `mobile/src/components/OravaChat.tsx` | Ask Orava chat UI with generated answers, current money context, loading, error, and retry states |
+| `mobile/src/lib/oravaChat.ts` | Typed client for status and chat requests; no API key or CSV access |
 
 ```text
 Orava app → FastAPI route → Chat service → Gemini adapter
@@ -49,7 +49,7 @@ Available tools: period-over-period spending change (same-length adjacent ranges
 
 ## Privacy and limits
 
-This is a single-user local demo with no authentication or authorization. The mobile flag controls whether the screen is visible; it is not an access-control boundary. Bind the API only to localhost. Do not expose it to a network or use it to look up another person's records. It is not production-ready. No customer-level transaction detail, age, postal code, or free-text notes are placed in routine logs or model requests. Historical mortgage outcomes are descriptive; the app does not make or recommend credit, eligibility, approval, rejection, or pricing decisions. Historical data is not live account data. If a source is absent or incomplete, dependent answers state that gap rather than fabricate values.
+This is a single-user local demo with no authentication or authorization. Bind the API only to localhost. Do not expose it to a network or use it to look up another person's records. It is not production-ready. The current health screen sends bounded monthly income/spending totals, score, categorized totals, and safe-to-spend aggregates to Gemini; it does not send transaction rows, direct identifiers, age, postal code, or free-text notes. Historical mortgage outcomes are descriptive; the app does not make or recommend credit, eligibility, approval, rejection, or pricing decisions. Historical data is not live account data. If a source is absent or incomplete, dependent answers state that gap rather than fabricate values.
 
 ## Tests and checks
 

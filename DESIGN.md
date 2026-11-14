@@ -45,7 +45,7 @@ Orava is a pocket-sized Finnish money coach. Its visual world is a familiar mobi
 - **Locale(s) and language policy:** English interface copy, euro formatting follows existing `theme.ts`; no localization provider exists yet.
 - **Usage scene:** Phone-first, one-hand use in the Orava app; the web build is a centered phone-width frame.
 - **Register:** Product utility with a small brand voice from Orava.
-- **Memorable signature:** A modest green pulse/chart mark beside the internal historical-data label, tying the analyst to Orava's existing money-health language.
+- **Memorable signature:** Ask Orava keeps its compact inline chat in Money health and can answer with both current monthly aggregates and historical Junction data.
 - **Restraint:** Reuse current colors, card geometry, navigation, and mascot. No new gradients, shadows, dashboard chrome, or decorative data visualizations.
 - **Anti-references:** Generic dark trading terminals, gradient-heavy SaaS dashboards, and an AI chat page that hides dates, units, or source-data status.
 - **Token ownership/runtime mapping:** `mobile/src/theme.ts` is canonical. Frontmatter values mirror `colors` and `radius`; screen-level dimensions and spacing remain local React Native styles. Analyst screen consumes these existing tokens and does not introduce global palette changes.
@@ -82,7 +82,7 @@ Primary action is deep green with white content. Secondary suggestions are quiet
 
 ### Navigation and data display
 
-The app retains its shared header and bottom navigation. The internal analyst entry appears on Home only when `EXPO_PUBLIC_ANALYST_ENABLED=true`. Historical status is labeled; query answers state periods, units, and filters when the service returns them.
+The app retains its shared header and bottom navigation. Ask Orava stays inside Money health. Its status labels Gemini configuration and historical dataset availability; query answers state periods, units, and filters when the service returns them.
 
 ### Forms and overlays
 

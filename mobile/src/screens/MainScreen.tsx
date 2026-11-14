@@ -11,14 +11,12 @@ import { typeFor } from '../data/categories';
 import type { Account, Transaction } from '../data/demoAccount';
 import { buildHealth } from '../orava/health';
 import { reactTo, type Reaction, type ReactionAction } from '../orava/scenarios';
-import { analystEnabled } from '../lib/analyst';
 import { colors, eur } from '../theme';
-import { AnalystScreen } from './AnalystScreen';
 import { AddTransactionScreen, type NewTx } from './AddTransactionScreen';
 import { HealthScreen } from './HealthScreen';
 import { HomeScreen } from './HomeScreen';
 
-type Screen = 'home' | 'add' | 'health' | 'analyst';
+type Screen = 'home' | 'add' | 'health';
 
 let seq = 0;
 
@@ -104,8 +102,6 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
           />
         ) : screen === 'health' ? (
           <HealthScreen report={report} onBack={() => setScreen('home')} />
-        ) : screen === 'analyst' ? (
-          <AnalystScreen onBack={() => setScreen('home')} />
         ) : (
           <>
             <AppHeader
@@ -123,8 +119,6 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
                 actions: reaction?.actions?.map((a) => ({ ...a, onPress: () => act(a.id) })),
               }}
               onOpenHealth={openHealth}
-              onOpenAnalyst={() => setScreen('analyst')}
-              analystEnabled={analystEnabled}
               onAdd={() => setScreen('add')}
               onDelete={remove}
             />

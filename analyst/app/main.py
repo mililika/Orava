@@ -13,7 +13,7 @@ if not settings.gemini_api_key or settings.gemini_api_key.get_secret_value().str
     raise RuntimeError("GEMINI_API_KEY is missing. Copy .env.example to .env, set a real GCP key, and restart.")
 
 engine = DataEngine(settings.data_dir, demo_mode=settings.demo_mode)
-app = FastAPI(title="Orava Analyst Demo", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="Ask Orava API", docs_url="/api/docs", redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.orava_web_origins,

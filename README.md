@@ -137,9 +137,10 @@ Postgres `transactions` table, run in Docker on the data owner's machine. The pr
 does not use it yet; the demo numbers in `demoAccount.ts` are shaped like the dataset's
 average customer.
 
-## Historical analyst
+## Ask Orava
 
-The Gemini-based Historical Analyst is available inside Orava's Home screen when the internal
-analyst flag is enabled. Its Expo UI is part of `mobile/`; the FastAPI/DuckDB query service and
-setup instructions live in [`analyst/`](analyst/README.md). The API key and CSVs stay on the server.
-This local demo has no authentication, so keep it bound to localhost and disabled in public builds.
+Ask Orava in Money health uses Gemini for generated replies. It can use the current screen's
+bounded monthly health summary and the historical Junction data tools. The Expo chat lives in
+`mobile/`; its FastAPI/DuckDB service and GCP key setup are documented in [`analyst/`](analyst/README.md).
+The Gemini key and CSVs stay on the server. This local demo has no authentication, so keep the
+API bound to localhost.
