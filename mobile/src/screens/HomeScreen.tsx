@@ -1,105 +1,67 @@
-// The one screen of the prototype: S-mobiili home with Orava on it.
-// Data flow: transactions → buildSnapshot() → evaluateOrava() → OravaCard.
+// S-mobiili-style home: account balance and the transaction list.
 
-import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { AccountsSection, ApprovalsCard, TransactionsSection } from '../components/AccountCards';
-import { AppHeader, BottomNav, type Tab } from '../components/AppChrome';
-import { BonusCard } from '../components/BonusCard';
-import { OravaCard } from '../components/OravaCard';
-import { useToast } from '../components/Toast';
-import { Card } from '../components/ui';
-import {
-  DEMO_ACTIONS,
-  buildSnapshot,
-  slipsBaselineOf,
-  splitLatestMonth,
-  type Account,
-  type Transaction,
-} from '../data/demoAccount';
-import { evaluateOrava } from '../orava/logic';
-import { colors } from '../theme';
+import { OravaCard, type OravaAction } from '../components/OravaCard';
+import type { Mood } from '../orava/types';
+import { TransactionList } from '../components/TransactionList';
+import { SectionHead } from '../components/ui';
+import type { Transaction } from '../data/demoAccount';
+import { colors, eur, radius } from '../theme';
 
-const TAB_NAMES: Record<Tab, string> = {
-  home: 'Home',
-  etukortti: 'S-Etukortti',
-  pay: 'Pay',
-  sbank: 'S-Bank',
-  me: 'Me',
-};
+interface Props {
+  username: string;
+  balance: number;
+  txs: Transaction[];
+  orava: { mood: Mood; score: number; message: string; actions?: OravaAction[] };
+  onOpenHealth: () => void;
+  onAdd: () => void;
+  onDelete: (t: Transaction) => void;
+}
 
-export function HomeScreen({ account, onLogout }: { account: Account; onLogout: () => void }) {
-  // Demo buttons add transactions on top of what was loaded from the database.
-  const [added, setAdded] = useState<Transaction[]>([]);
-  const txs = useMemo(() => [...added, ...account.txs], [added, account.txs]);
-  const [tab, setTab] = useState<Tab>('home');
-  const { show, toast } = useToast();
-
-  const balance = account.balance + added.reduce((sum, t) => sum + t.amount, 0);
-  const orava = useMemo(() => {
-    const { month, earlier } = splitLatestMonth(txs);
-    return evaluateOrava(buildSnapshot(month, balance, slipsBaselineOf(earlier)));
-  }, [txs, balance]);
-
-  const add = (t: Transaction, msg: string) => {
-    setAdded((prev) => [t, ...prev]);
-    show(msg);
-  };
-  const soon = (what: string) => () => show(`${what} is not part of the prototype yet`);
-
+export function HomeScreen({
+  username,
+  balance,
+  txs,
+  orava,
+  onOpenHealth,
+  onAdd,
+  onDelete,
+}: Props) {
   return (
-    <View style={s.screen}>
-      <AppHeader onLock={onLogout} onChat={soon('Messages')} />
-
-      <ScrollView style={s.scroll} contentContainerStyle={{ flexGrow: 1 }}>
-        {tab === 'home' ? (
-          <>
-            <BonusCard onPress={soon('Bonus details')} />
-            <View style={s.body}>
-              <OravaCard
-                state={orava}
-                demo={{
-                  eatOut: () => add(DEMO_ACTIONS.eatOut(), 'Added: takeaway −€45'),
-                  jacket: () => add(DEMO_ACTIONS.jacket(), 'Added: new jacket −€120'),
-                  sideGig: () => add(DEMO_ACTIONS.sideGig(), 'Added: side gig +€400'),
-                  reset: () => {
-                    setAdded([]);
-                    show('Back to the start of the demo');
-                  },
-                }}
-              />
-              <ApprovalsCard onPress={soon('Payments to approve')} />
-              <AccountsSection balance={balance} onPress={soon('Account details')} />
-              <TransactionsSection txs={txs} />
-              <Text style={s.foot}>
-                Signed in as {account.username}. Data from the S-Bank Junction 2026 dataset.
-              </Text>
-            </View>
-          </>
-        ) : (
-          <View style={s.body}>
-            <Card>
-              <Text style={s.stubTitle}>{TAB_NAMES[tab]}</Text>
-              <Text style={s.stubText}>
-                This tab is a placeholder. Orava lives on Home for now.
-              </Text>
-            </Card>
-          </View>
-        )}
-      </ScrollView>
-
-      <BottomNav tab={tab} onChange={setTab} />
-      {toast}
-    </View>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content}>
+      <View style={s.body}>
+        <SectionHead title="Balance" />
+        <View style={s.hero}>
+          <Text style={s.account}>Current account</Text>
+          <Text style={[s.balance, balance < 0 && { color: colors.neg }]}>{eur(balance)}</Text>
+          <Text style={s.available}>Available balance</Text>
+        </View>
+        <SectionHead title="Orava" />
+        <OravaCard {...orava} onOpen={onOpenHealth} />
+        <SectionHead title="Transactions" action={{ label: 'New transaction', onPress: onAdd }} />
+        <TransactionList txs={txs} onDelete={onDelete} />
+        <Text style={s.foot}>
+          Signed in as {username}. Data from the S-Bank Junction 2026 dataset.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.mint },
-  scroll: { flex: 1 },
-  body: { padding: 12, paddingBottom: 24, gap: 12 },
+  content: { flexGrow: 1, paddingBottom: 110 },
+  hero: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 14,
+  },
+  account: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
+  balance: { fontSize: 38, fontWeight: '800', color: colors.green, marginTop: 2 },
+  available: { fontSize: 12, color: colors.faint },
+  body: { padding: 12, gap: 10 },
   foot: { fontSize: 11.5, color: colors.faint, marginHorizontal: 4, lineHeight: 16 },
-  stubTitle: { fontSize: 19, fontWeight: '700', color: colors.green, marginBottom: 6 },
-  stubText: { fontSize: 14, color: colors.ink2 },
 });

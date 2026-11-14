@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { colors, radius } from '../theme';
+import { Icon } from './Icon';
 
 export function Card({
   children,
@@ -50,11 +51,31 @@ export function Pill({
   );
 }
 
-export function SectionHead({ title, right }: { title: string; right?: string }) {
+export function SectionHead({
+  title,
+  right,
+  action,
+}: {
+  title: string;
+  right?: string;
+  /** A round plus button at the top right of the section. */
+  action?: { label: string; onPress: () => void };
+}) {
   return (
     <View style={s.secHead}>
       <Text style={s.secTitle}>{title}</Text>
       {right ? <Text style={s.secTitle}>{right}</Text> : null}
+      {action ? (
+        <Pressable
+          onPress={action.onPress}
+          role="button"
+          accessibilityLabel={action.label}
+          hitSlop={8}
+          style={({ pressed }) => [s.plus, pressed && { opacity: 0.75 }]}
+        >
+          <Icon name="plus" color="#fff" size={20} strokeWidth={2.4} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -75,9 +96,17 @@ const s = StyleSheet.create({
   secHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
     paddingHorizontal: 4,
     paddingTop: 6,
+  },
+  plus: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   secTitle: { fontSize: 19, fontWeight: '700', color: colors.green },
 });

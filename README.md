@@ -4,8 +4,17 @@ Junction 2026, S-Bank challenge "Personal Economic Trainer".
 Orava is a squirrel that lives on the S-mobiili home screen and shows, through its mood,
 how your money is doing this month.
 
-This repo is a clickable prototype: one S-mobiili-style home screen with Orava on it.
-The demo buttons add transactions, and Orava's mood, score and message update live.
+This repo is a clickable prototype with three screens:
+
+- **Home**: account balance, money in/out this month, transactions by day, and a
+  "New transaction" button.
+- **New transaction**: expense or income, amount, category grid, optional description.
+- **Money health**: Orava's verdict and score, four key numbers (kept this month, fixed
+  costs, everyday extras vs. usual, safety buffer) and a "where your money goes" chart.
+
+Orava floats over Home: drag it anywhere (it snaps to the nearest side), tap it to open
+Money health. It greets you on sign-in and speaks up when a new transaction changes its mood.
+On the sign-in screen, "Continue with demo data" skips the database.
 
 ## Run it
 
@@ -60,27 +69,36 @@ npm run typecheck     # TypeScript check
 
 ```
 mobile/
-  App.tsx                     app entry, phone-sized frame on web
+  App.tsx                       app entry, phone-sized frame on web
   src/
     orava/
-      logic.ts                ← Orava's brain: MonthSnapshot in, OravaState out
-      types.ts                the contract between data and Orava
-      Mascot.tsx              the squirrel in 5 moods (SVG + animations)
-      moods.ts                mood names and colors
-    data/demoAccount.ts       fake September transactions + snapshot builder
-    screens/HomeScreen.tsx    the one screen; wires data → logic → UI
-    components/               header, bottom bar, bonus, Orava card, accounts, transactions
-    theme.ts                  S-mobiili colors, euro formatting
+      logic.ts                  ← Orava's mood: MonthSnapshot in, OravaState out
+      health.ts                 ← Money health numbers + spending breakdown (pure)
+      scenarios.ts              ← instant reactions to one new transaction (pure)
+      types.ts                  the contract between data and Orava
+      Mascot.tsx                the squirrel in 4 moods (SVG + animations)
+      moods.ts                  mood names and colors
+    data/
+      demoAccount.ts            fake September transactions + snapshot builder
+      categories.ts             category names, icons, tints
+    screens/
+      MainScreen.tsx            tabs, added transactions, floating Orava
+      HomeScreen.tsx            balance + transaction list
+      AddTransactionScreen.tsx  new expense / income
+      HealthScreen.tsx          Money health
+      LoginScreen.tsx           sign-in (Supabase) or demo data
+    components/                 floating Orava, speech bubble, chart, list, header, nav
+    theme.ts                    S-mobiili colors, euro formatting
 ```
 
 ### How data flows
 
 ```
-transactions ──buildSnapshot()──▶ MonthSnapshot ──evaluateOrava()──▶ OravaState ──▶ OravaCard
+transactions ──buildSnapshot()──▶ MonthSnapshot ──evaluateOrava()──▶ OravaState ──▶ FloatingOrava / HealthScreen
  (demoAccount.ts)                   (types.ts)       (logic.ts)          (types.ts)
 ```
 
-- **Want smarter moods?** Edit only `src/orava/logic.ts`. It's a pure function with no UI
+- **Want smarter moods or metrics?** Edit only `src/orava/logic.ts` or `src/orava/health.ts`. It's a pure function with no UI
   or network, so it can be unit tested or moved to a backend later without touching screens.
 - **Want real data?** Replace `src/data/demoAccount.ts` with calls to the backend. As long as
   you still produce `Transaction[]` and a `MonthSnapshot`, nothing else changes.
@@ -88,13 +106,27 @@ transactions ──buildSnapshot()──▶ MonthSnapshot ──evaluateOrava()�
 
 ### Current mood rules (first match wins)
 
-| Mood     | When                                                              |
-| -------- | ----------------------------------------------------------------- |
-| Alarmed  | Balance below zero, or spending more than income this month       |
-| Worried  | Saving rate under 5%, or everyday slips more than 40% above usual |
-| Curious  | Everyday slips 15–40% above usual                                 |
-| Thriving | Saving rate 20% or more                                           |
-| Content  | Everything else                                                   |
+The squirrel has the four moods of the design: happy, okay, worried, alert.
+
+| Mood    | When                                                              |
+| ------- | ----------------------------------------------------------------- |
+| Alert   | Balance below zero, or spending more than income this month       |
+| Worried | Saving rate under 5%, or everyday slips more than 15% above usual |
+| Happy   | Saving rate 20% or more                                           |
+| Okay    | Everything else                                                   |
+
+### Instant reactions (hardcoded for now, `src/orava/scenarios.ts`)
+
+When you add a transaction, Orava may react to it right away (later this becomes an AI call):
+
+| Scenario        | Trigger                                             | Orava                                |
+| --------------- | --------------------------------------------------- | ------------------------------------ |
+| Big restaurant  | one Restaurants payment ≥ 5% of monthly income      | worried, offers a gentle limit       |
+| Unusual payment | any other non-fixed payment ≥ 20% of monthly income | alert, "Was this you?" / freeze card |
+| Coffee streak   | 3rd coffee within 7 days                            | worried, shows the monthly pace      |
+| Extra income    | income that is not salary                           | happy, suggests saving a quarter     |
+
+Try it in the demo: add three Coffee payments, a €260 Restaurants payment, or €800 Lifestyle.
 
 "Everyday slips" = restaurants, fast food, lifestyle, entertainment, travel.
 

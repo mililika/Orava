@@ -60,15 +60,16 @@ export const SEPTEMBER: Transaction[] = [
   tx('2026-09-01', 'Housing', 'Rent', -1088.0, 'housing_payment'),
 ];
 
-/** Buttons in the demo add these transactions on top of the list. */
-export const DEMO_ACTIONS = {
-  eatOut: () => tx('2026-09-29', 'Restaurants', 'Takeaway', -45),
-  jacket: () => tx('2026-09-29', 'Lifestyle', 'New jacket', -120),
-  sideGig: () => tx('2026-09-29', 'Other Income', 'Side gig', 400, 'other_income'),
-};
+/** Account used by "Continue with demo data" on the sign-in screen. */
+export function demoAccount(): Account {
+  return { username: 'demo', txs: SEPTEMBER, balance: balanceOf(SEPTEMBER) };
+}
 
 /** Which Orava basket each category belongs to. */
-const BASKET: Record<string, keyof Omit<MonthSnapshot, 'balance' | 'everydaySlipsBaseline'>> = {
+export const BASKET: Record<
+  string,
+  keyof Omit<MonthSnapshot, 'balance' | 'everydaySlipsBaseline'>
+> = {
   Salary: 'income',
   'Other Income': 'income',
   Housing: 'mustPayRegular',
@@ -79,6 +80,7 @@ const BASKET: Record<string, keyof Omit<MonthSnapshot, 'balance' | 'everydaySlip
   Transportation: 'needs',
   Travel: 'everydaySlips',
   Restaurants: 'everydaySlips',
+  Coffee: 'everydaySlips',
   Lifestyle: 'everydaySlips',
   Entertainment: 'everydaySlips',
 };
