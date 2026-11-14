@@ -93,6 +93,32 @@ console.log('Demo account');
   );
 }
 
+console.log('Transactions recorded per basket');
+{
+  const a = analyzeMonth(demo.txs, demo.balance, demo.coverage);
+  check(
+    'demo counts: regular 4, unexpected 2, essentials 7, flexible 8, other 0',
+    a.counts.regular === 4 &&
+      a.counts.unexpected === 2 &&
+      a.counts.everydayEssential === 7 &&
+      a.counts.flexible === 8 &&
+      a.counts.otherOut === 0,
+    a.counts,
+  );
+  const noBills = analyzeMonth(
+    [
+      { date: '2026-09-15', category: 'Salary', amount: 2000 },
+      { date: '2026-09-05', category: 'Restaurants', amount: -40 },
+    ],
+    1960,
+    null,
+  );
+  check(
+    'no bills recorded → count 0 (shown as "0 transactions recorded", not €0 of bills)',
+    noBills.counts.regular === 0 && noBills.snapshot.regular === 0,
+  );
+}
+
 console.log('Demo buttons still move the mood');
 {
   const txs = [DEMO_ACTIONS.jacket(), ...demo.txs];

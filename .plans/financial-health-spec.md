@@ -203,6 +203,30 @@ Implementation hint: let `evaluateOrava` return which rule fired, e.g. `trigger:
 
 ## 7. Part B: optional AI add-on
 
+**Status 2026-11-14: built and tested with fake model replies. No real API call has been made yet.**
+It waits for a Gemini key, confirmed free access and the work split with Hamza.
+
+What exists:
+- `mobile/server/` is a dependency-free Node server (`npm run ai-server`). The key is read from
+  `server/.env.local`.
+  - Routes: `GET /health`, `POST /interpret`, `POST /explain`.
+  - Rate limit: 20 AI calls per minute per client.
+  - Body limit: 8 KB. Question limit: 300 characters.
+  - Gemini timeout: 8 s, with a 15 s timeout in the app.
+- `src/orava/ai/gemini.ts` calls `models/{model}:generateContent` with `responseJsonSchema`. The default
+  model is `gemini-3.5-flash-lite`. Details were checked in the official docs on 2026-11-14.
+- `src/orava/ai/ask.ts` holds the shared contract:
+  - It validates the classification: category must be a flexible one present this period, amount
+    between €1 and what was spent, explain only when there is a comparison.
+  - It checks the wording: no number outside the facts, no guessed motives, at most 400 characters.
+- `src/orava/ai/flow.ts` re-validates on the device and calculates with `analysis.ts`. If the wording
+  fails, the calculated result is still shown, without AI text.
+- `src/components/AskOrava.tsx` is shown only when `EXPO_PUBLIC_ORAVA_AI_URL` is set **and**
+  `/health` reports `ai:true`. Otherwise part A is unchanged.
+- Only aggregates are sent: category totals and counts, comparison averages and the goal name and
+  amount. The free tier is marked "Used to improve our products: Yes" (pricing page,
+  2026-11-14). That is acceptable for the synthetic demo; check it before using real customer data.
+
 Starts only when **both** are true:
 1. **The work split with Hamza is agreed.** If he has a chat/RAG endpoint that can take a question and
    return text, reuse it instead of building our own.

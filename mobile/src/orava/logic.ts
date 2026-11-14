@@ -12,6 +12,10 @@
 
 import type { MonthSnapshot, MoodBasis, OravaState } from './types';
 
+/** Shown when there is no reliable comparison. Exported so screens can avoid repeating it. */
+export const NO_COMPARISON_REASON =
+  'No reliable earlier months to compare with, so Orava only looks at this month.';
+
 const eur = (n: number) => `€${Math.round(Math.abs(n)).toLocaleString('en-US')}`;
 
 export function spendingOf(s: MonthSnapshot) {
@@ -38,10 +42,7 @@ export function evaluateOrava(s: MonthSnapshot): OravaState {
     0,
     100,
   );
-  const noComparison =
-    s.flexibleComparison === null
-      ? ['No reliable earlier months to compare with, so Orava only looks at this month.']
-      : [];
+  const noComparison = s.flexibleComparison === null ? [NO_COMPARISON_REASON] : [];
   const base = { score, savingRate, kept };
 
   if (s.balance < 0) {

@@ -56,7 +56,7 @@ export function Pill({
       style={({ pressed }) => [
         s.pill,
         outline && s.pillOutline,
-        pressed && { opacity: 0.75 },
+        pressed && !disabled && { opacity: 0.85, transform: [{ scale: 0.96 }] },
         disabled && s.pillDisabled,
       ]}
     >

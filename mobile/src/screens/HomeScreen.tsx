@@ -11,6 +11,7 @@ import { OravaCard } from '../components/OravaCard';
 import { useToast } from '../components/Toast';
 import { Card, DemoBadge } from '../components/ui';
 import { DEMO_ACTIONS, type Account, type Transaction } from '../data/demoAccount';
+import { useAskOrava } from '../lib/ai';
 import { analyzeMonth } from '../orava/analysis';
 import type { SavingsGoal } from '../orava/goal';
 import { evaluateOrava } from '../orava/logic';
@@ -34,6 +35,8 @@ export function HomeScreen({ account, onLogout }: { account: Account; onLogout: 
   // The optional savings goal lives in memory like the rest of the app state:
   // it survives moving between screens, and is cleared on sign-out or reload.
   const [goal, setGoal] = useState<SavingsGoal | null>(null);
+  // "Ask Orava" client, or null when the AI server is not set up (part A works without it).
+  const ai = useAskOrava();
   const { show, toast } = useToast();
 
   const balance = account.balance + added.reduce((sum, t) => sum + t.amount, 0);
@@ -68,6 +71,7 @@ export function HomeScreen({ account, onLogout }: { account: Account; onLogout: 
         onBack={() => setView('home')}
         goal={goal}
         onGoalChange={setGoal}
+        ai={ai}
       />
     );
   } else {

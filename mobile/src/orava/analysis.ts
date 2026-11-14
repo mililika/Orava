@@ -32,6 +32,8 @@ export interface CategoryTotal {
   category: string;
   /** Net euros out for spending categories (refunds reduce it); net euros in for income. */
   amount: number;
+  /** Purchases (money-out transactions) recorded this period. */
+  count: number;
 }
 
 export interface CategoryComparison {
@@ -40,6 +42,10 @@ export interface CategoryComparison {
   current: number;
   /** Average spending on days 1..days of the comparison months. */
   usual: number;
+  /** Purchases on days 1..days of the current month. */
+  countCurrent: number;
+  /** Average purchases per month on days 1..days of the comparison months. */
+  countUsual: number;
 }
 
 export interface MonthAnalysis {
@@ -54,6 +60,8 @@ export interface MonthAnalysis {
   /** Category names that were not recognised, by direction. */
   unknownOut: string[];
   unknownIn: string[];
+  /** How many transactions were recorded per basket this period (0 = none recorded). */
+  counts: Record<'regular' | 'unexpected' | 'everydayEssential' | 'flexible' | 'otherOut', number>;
   /** Per-category comparison of flexible spending, or null. */
   comparison: { days: number; months: string[]; categories: CategoryComparison[] } | null;
   /** Why there is no comparison, in plain words. Null when there is one. */
@@ -158,11 +166,21 @@ export function analyzeMonth(txs: Tx[], balance: number, coverage: Coverage | nu
   const snapshot = snapshotOf(monthTxs, balance);
 
   const flexible = [...byCategory(monthTxs.filter((t) => isFlexible(t.category)))]
-    .map(([category, list]) => ({ category, amount: round2(netOut(list)) }))
+    .map(([category, list]) => ({
+      category,
+      amount: round2(netOut(list)),
+      count: list.filter((t) => t.amount < 0).length,
+    }))
     .filter((c) => c.amount > 0)
     .sort((a, b) => b.amount - a.amount);
 
   const unknown = monthTxs.filter((t) => !basketOf(t.category));
+  const counts = { regular: 0, unexpected: 0, everydayEssential: 0, flexible: 0, otherOut: 0 };
+  for (const t of monthTxs) {
+    const b = basketOf(t.category);
+    if (b && b !== 'income') counts[b]++;
+    else if (!b && t.amount < 0) counts.otherOut++;
+  }
   const unknownOut = unique(unknown.filter((t) => t.amount < 0).map((t) => t.category));
   const unknownIn = unique(unknown.filter((t) => t.amount > 0).map((t) => t.category));
 
@@ -197,6 +215,7 @@ export function analyzeMonth(txs: Tx[], balance: number, coverage: Coverage | nu
     flexible,
     unknownOut,
     unknownIn,
+    counts,
     comparison,
     noComparisonReason: reason,
   };
@@ -245,7 +264,15 @@ function compare(
       const current = netOut(own.filter((t) => within(t, month)));
       const usual =
         months.reduce((sum, m) => sum + netOut(own.filter((t) => within(t, m))), 0) / months.length;
-      return { category, current: round2(current), usual: round2(usual) };
+      const purchases = (m: string) => own.filter((t) => within(t, m) && t.amount < 0).length;
+      const countUsual = months.reduce((sum, m) => sum + purchases(m), 0) / months.length;
+      return {
+        category,
+        current: round2(current),
+        usual: round2(usual),
+        countCurrent: purchases(month),
+        countUsual: Math.round(countUsual * 10) / 10,
+      };
     })
     .filter((c) => c.current > 0 || c.usual > 0);
 
