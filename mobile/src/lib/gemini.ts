@@ -53,7 +53,7 @@ const textOf = (data: unknown) =>
 /**
  * POSTs to Gemini, retrying once without the thinking level if the model rejects it.
  * Returns the response once it is OK; throws a readable Error otherwise, or RateLimitError when
- * the user has used up this hour's requests.
+ * the user has used up their requests.
  */
 async function post(
   method: 'generateContent' | 'streamGenerateContent?alt=sse',

@@ -96,7 +96,12 @@ export function OravaChat({ user, report }: { user: string; report: HealthReport
       write(plainText(reply), true);
     } catch (e) {
       if (e instanceof RateLimitError) {
-        write(`I've hit my hourly limit. Ask me again in ${minutesUntil(e.retryAt)}.`, true);
+        write(
+          e.retryAt === undefined
+            ? "I've used up my request limit."
+            : `I've hit my hourly limit. Ask me again in ${minutesUntil(e.retryAt)}.`,
+          true,
+        );
         return;
       }
       console.warn(e);

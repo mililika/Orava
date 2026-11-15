@@ -1,0 +1,8 @@
+{
+  "name": "limits-server",
+  "private": true,
+  "description": "Per-user Gemini request limits for Orava, stored in limits.json",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
