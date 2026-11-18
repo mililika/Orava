@@ -1,0 +1,57 @@
+[
+  {
+    "username": "misha",
+    "limit": 10,
+    "currentUsage": 0
+  },
+  {
+    "username": "olli",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "miro",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "hamza",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user05",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user06",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user07",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user08",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user09",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "user10",
+    "limit": 300,
+    "currentUsage": 0
+  },
+  {
+    "username": "demo",
+    "limit": 200,
+    "currentUsage": 0
+  }
+]

@@ -159,6 +159,21 @@ month, so a month is only asked again when its transactions change; the 10 newes
 kept. Ask Orava (the chat at the bottom of Money health) streams its answers from the same
 context. Set `EXPO_PUBLIC_GEMINI_API_KEY` in `mobile/.env` (see `.env.example`).
 
+**Request limits per user.** Before each Gemini request the app asks the limits server
+(`limits-server/`, on the VPS behind `https://orava.mililika.uk/api/`) for a slot. Limits and usage
+live in `limits-server/limits.json`, an array of `{ "username", "limit", "currentUsage" }`; the file
+is read on every request, so edit it to change a limit or reset someone (`currentUsage: 0`), no
+restart needed. The limit is a total, not per hour, and users not in the file are unlimited. Check
+someone with `curl https://orava.mililika.uk/api/usage/demo`. Set `EXPO_PUBLIC_LIMITS_URL` in
+`mobile/.env`. If the server is unreachable, the app falls back to 20 requests per hour for
+everyone, counted on the device (`FALLBACK_PER_HOUR` in `mobile/src/lib/rateLimit.ts`). This is
+not a security boundary: the Gemini key is in the bundle.
+
+```bash
+cd limits-server && cp limits.example.json limits.json
+pm2 start server.js --name limits-server && pm2 save   # listens on 127.0.0.1:3001
+```
+
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.
 
 ## Data

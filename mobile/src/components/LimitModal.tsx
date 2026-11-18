@@ -1,4 +1,4 @@
-// "You've reached the limit": pops up whenever a Gemini request is blocked by the hourly limit
+// "You've reached the limit": pops up whenever a Gemini request is blocked by the request limit
 // (lib/rateLimit.ts), from the Home overview or from Ask Orava.
 
 import { useEffect, useState } from 'react';
@@ -22,10 +22,15 @@ export function LimitModal() {
           <Text style={s.title}>You&apos;ve reached the limit</Text>
           <Text style={s.body}>
             Sorry, we had to protect our Google credentials, so we had to restrict the usage. This
-            account can ask Orava {hit?.limit ?? 0} times an hour.
+            account can ask Orava {hit?.limit ?? 0} times
+            {hit?.retryAt === undefined ? '' : ' an hour'}.
           </Text>
           {hit ? (
-            <Text style={s.when}>Orava can answer again in {minutesUntil(hit.retryAt)}.</Text>
+            <Text style={s.when}>
+              {hit.retryAt === undefined
+                ? `Limit reached (${hit.limit} requests).`
+                : `Orava can answer again in ${minutesUntil(hit.retryAt)}.`}
+            </Text>
           ) : null}
           <Text style={s.body}>
             If this blocks your review, email{' '}
