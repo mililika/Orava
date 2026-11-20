@@ -6,6 +6,7 @@ import {
   type Category,
   type CategoryInfo as CoreCategoryInfo,
   categoryInfo as coreInfo,
+  isCategory,
 } from '@orava/core';
 
 import type { IconName } from '../components/Icon';
@@ -37,10 +38,10 @@ export const CATEGORY_STYLES: Record<Category, CategoryStyle> = {
   'Other Income': { icon: 'arrowIn', tint: '#d9f2df' },
 };
 
+/** Icon and tint for a category the app doesn't list (core names it "Other"). */
 const OTHER: CategoryStyle = { icon: 'dots', tint: '#eef1ee' };
 
 /** Name, money in/out, icon and tint for a category value. */
 export function categoryInfo(category: string): CategoryInfo {
-  const style = (CATEGORY_STYLES as Record<string, CategoryStyle | undefined>)[category] ?? OTHER;
-  return { ...coreInfo(category), ...style };
+  return { ...coreInfo(category), ...(isCategory(category) ? CATEGORY_STYLES[category] : OTHER) };
 }

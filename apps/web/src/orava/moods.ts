@@ -1,3 +1,5 @@
+// How each mood looks: colours on top of the words in @orava/core.
+
 import { MOOD_LABELS, type Mood } from '@orava/core';
 
 import { colors } from '../theme';

@@ -1,6 +1,6 @@
 // How many Gemini requests a user may make per hour, so the bundled Google key isn't drained.
 //
-// The limits are rate-limits.json in the app root (mobile/): a map from username to requests per
+// The limits are rate-limits.json in the app root (apps/web/): a map from username to requests per
 // hour, e.g. {"demo": 200, "misha": 2}. A username that isn't in it has no limit. The file is
 // bundled into the app, so restart Expo (or rebuild) after editing it.
 //

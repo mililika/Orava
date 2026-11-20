@@ -1,3 +1,5 @@
+// The words for each of Orava's moods. The colours live in the web app.
+
 import type { Mood } from './types';
 
 /**

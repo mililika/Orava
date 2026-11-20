@@ -10,7 +10,7 @@ import { RateLimitError, reportLimit, takeRequest } from './rateLimit';
 const KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 /**
  * Gemini 3.8 Flash with low thinking: quick and still sharp with numbers. Override with
- * EXPO_PUBLIC_GEMINI_MODEL in mobile/.env (gemini-3.5-flash-lite is quicker still,
+ * EXPO_PUBLIC_GEMINI_MODEL in apps/web/.env (gemini-3.5-flash-lite is quicker still,
  * gemini-4-hydrogen deeper).
  */
 const MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.8-flash';
@@ -62,7 +62,7 @@ async function post(
   { schema, user }: Options,
 ) {
   if (!geminiConfigured) {
-    throw new Error('Gemini is not configured. Set EXPO_PUBLIC_GEMINI_API_KEY in mobile/.env.');
+    throw new Error('Gemini is not configured. Set EXPO_PUBLIC_GEMINI_API_KEY in apps/web/.env.');
   }
   if (user) {
     try {
