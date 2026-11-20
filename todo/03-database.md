@@ -124,21 +124,21 @@ end $$;
 
 ## Tasks
 
-- [ ] Add `drizzle-orm` and the driver to `apps/server`. Write `src/db/schema.ts` mirroring the
+- [x] Add `drizzle-orm` and the driver to `apps/server`. Write `src/db/schema.ts` mirroring the
       schema above (all three tables, all columns, same nullability and defaults).
-- [ ] `DbModule` (global): a provider that creates one connection pool from `DATABASE_URL` and the
+- [x] `DbModule` (global): a provider that creates one connection pool from `DATABASE_URL` and the
       Drizzle instance, injected with a token (e.g. `@Inject(DB)`). Close the pool in
       `onApplicationShutdown`. Add the `select 1` check to `GET /api/health`.
-- [ ] `apps/server/.env.example`: `DATABASE_URL=` with a comment on where to find it in Supabase
+- [x] `apps/server/.env.example`: `DATABASE_URL=` with a comment on where to find it in Supabase
       (never the real value). The owner puts the real one in `apps/server/.env` (gitignored).
-- [ ] Injectable repositories that hide Drizzle from controllers and services:
+- [x] Injectable repositories that hide Drizzle from controllers and services:
   - `UsersRepository`: `findByUsername` (lowercases the input), `findById`.
   - `TransactionsRepository`: `list(userId)` returning `@orava/core`'s `Transaction[]` (newest
     first, without deleted rows, `id` as a string) and `balanceOf(userId)`.
   - Section 04 adds a `SessionsRepository`; section 05 adds the write side for transactions.
   - Repositories return domain types, never Drizzle row types; controllers map them to
     `@orava/contracts` DTOs.
-- [ ] Root README: a short "Database" section: it's Supabase Postgres, where the connection string
+- [x] Root README: a short "Database" section: it's Supabase Postgres, where the connection string
       goes, and that the schema is documented in `todo/03-database.md`.
 
 ## Acceptance criteria
@@ -154,3 +154,22 @@ end $$;
 ## Notes
 
 <!-- Anything that turned out different from this plan. -->
+
+- **Drizzle 0.45 (latest stable) + postgres.js**, the driver Drizzle's Supabase guide uses. The 1.0
+  line is still an RC. Pool: `max: 5`, `ssl: 'require'`, created in `DbModule`; `Db` and the `DB`
+  token live in `src/db/db.ts`.
+- **Money as numbers:** the `numeric` columns use Drizzle's `mode: 'number'`, so the euro
+  conversion happens in the column mapping rather than by hand in each repository.
+  `balanceOf()` sums in Postgres (`numeric`) and converts once, so cents don't pick up float errors.
+  It returns `undefined` for an unknown user.
+- **Column names are explicit** in `schema.ts` (`passwordHash: text('password_hash')`), not
+  Drizzle's `casing` option, so the file reads like the SQL. Constraint and index names match
+  Postgres's (checked with `drizzle-kit pull`).
+- **`drizzle-kit` isn't a dependency.** Installing it in the workspace failed (tsx's nested esbuild
+  clashes with the hoisted platform binary), and it's only needed for the one-off pull check, so
+  that ran from a temporary folder outside the repo. The pull matched `schema.ts`.
+- **Exception filter (section 02 fix):** 5xx errors used to be sent as 500 whatever their status;
+  they now keep it, so health returns 503 (`code: internal`, generic message) when the DB is down.
+- **Checked:** health 200 against Supabase, and 503 with an unreachable `DATABASE_URL` (postgres.js
+  connects lazily, so the server still starts). `demo`: 659 transactions, newest first, balance
+  €12,534.33. The pool closes on SIGTERM.

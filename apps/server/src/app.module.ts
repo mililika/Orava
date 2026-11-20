@@ -5,6 +5,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { AppConfig } from './config/app-config.js';
 import { AppConfigModule } from './config/config.module.js';
+import { DbModule } from './db/db.module.js';
 import { HealthModule } from './health/health.module.js';
 
 @Module({
@@ -39,6 +40,7 @@ import { HealthModule } from './health/health.module.js';
         },
       }),
     }),
+    DbModule,
     HealthModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],

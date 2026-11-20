@@ -40,9 +40,9 @@ Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 ### Run it locally (web app + API)
 
 1. Copy `apps/server/.env.example` to `apps/server/.env` and set `DATABASE_URL` to the Supabase
-   Postgres connection string (Supabase → Project settings → Database). Never commit `.env`.
+   Postgres connection string (see [Database](#database)). Never commit `.env`.
 2. Start the API: `npm run dev:server`. It listens on http://localhost:8080; check it with
-   `curl localhost:8080/api/health` (→ `{"ok":true}`). It refuses to start if a var in `.env`
+   `curl localhost:8080/api/health` (→ `{"ok":true}`, or 503 if the database can't be reached). It refuses to start if a var in `.env`
    is missing or invalid, and names it.
 3. In a second terminal, start the web app: `npm run web` (http://localhost:8081).
 
@@ -50,6 +50,18 @@ Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 
 While the app is running, the terminal also takes keys: **`w`** browser, **`r`** reload.
 Saving a file reloads the app automatically, including files in `packages/`.
+
+## Database
+
+The data lives in a Supabase project, used only as a hosted Postgres: no Supabase Auth, Data API
+or client SDK. Only the API connects to it (Drizzle ORM + postgres.js, `apps/server/src/db/`);
+the web app never gets a connection string or key.
+
+- **Connection string:** Supabase dashboard → **Connect → Session pooler**, into `DATABASE_URL` in
+  `apps/server/.env`. Local development uses the same database, so writes are real.
+- **Schema:** documented in [`todo/03-database.md`](todo/03-database.md). The tables were created
+  once in the Supabase SQL Editor; the repo has no migrations, and `src/db/schema.ts` only mirrors
+  them for typed queries.
 
 ## Editor
 
@@ -91,7 +103,8 @@ apps/
       main.ts                   bootstrap: prefix, helmet, cookies, CORS, body limit
       config/                   env schema (zod) and the typed AppConfig
       common/                   ZodValidationPipe, the ApiErrorBody exception filter
-      health/                   GET /api/health
+      health/                   GET /api/health (checks the database)
+      db/                       Drizzle schema, connection pool, repositories
     Dockerfile                  multi-stage image, built from the repo root
 packages/
   core/                         @orava/core: the Money health engine, pure TypeScript

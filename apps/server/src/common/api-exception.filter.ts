@@ -88,11 +88,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
     return this.internal(exception, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
+  /** 5xx: keeps the status (e.g. 503 from health), never the error's own message. */
   private internal(exception: unknown, status: number): [number, ApiErrorBody] {
     this.logger.error(exception);
-    return [
-      HttpStatus.INTERNAL_SERVER_ERROR,
-      { error: { code: 'internal', message: 'Something went wrong.' } },
-    ];
+    return [status, { error: { code: 'internal', message: 'Something went wrong.' } }];
   }
 }
