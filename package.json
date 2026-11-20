@@ -1,7 +1,7 @@
 {
   "name": "orava",
   "private": true,
-  "description": "Orava – a money coach for S-mobiili (Junction 2026). npm workspaces: apps/web, packages/core, packages/contracts.",
+  "description": "Orava – a money coach for S-mobiili (Junction 2026). npm workspaces: apps/web, apps/server, packages/core, packages/contracts.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -9,10 +9,12 @@
   "scripts": {
     "postinstall": "npm run build:packages",
     "build:packages": "npm run build -w @orava/core && npm run build -w @orava/contracts",
-    "build": "npm run build:packages && npm run build -w @orava/web",
+    "build": "npm run build:packages && npm run build -w @orava/web && npm run build -w @orava/server",
     "dev:packages": "concurrently -n core,contracts \"npm run dev -w @orava/core\" \"npm run dev -w @orava/contracts\"",
     "web": "npm run build:packages && concurrently -k -n packages,web \"npm:dev:packages\" \"npm run web -w @orava/web\"",
     "start": "npm run build:packages && concurrently -k -n packages,web \"npm:dev:packages\" \"npm run start -w @orava/web\"",
+    "dev:server": "npm run build:packages && concurrently -k -n packages,server \"npm:dev:packages\" \"npm run dev -w @orava/server\"",
+    "docker:server": "docker build -f apps/server/Dockerfile -t orava-server . && docker run --rm --env-file apps/server/.env -p 8080:8080 orava-server",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
     "format": "npm run format --workspaces --if-present"

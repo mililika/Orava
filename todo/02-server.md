@@ -60,27 +60,27 @@ apps/server/src/
 
 ## Tasks
 
-- [ ] Scaffold `apps/server` (`@orava/server`) with the Nest CLI, trim the samples, switch to the SWC
+- [x] Scaffold `apps/server` (`@orava/server`) with the Nest CLI, trim the samples, switch to the SWC
       builder, add `@orava/contracts` and `@orava/core` as workspace dependencies.
-- [ ] `src/config/env.ts`: zod schema for `PORT` (default 8080), `NODE_ENV`, `DATABASE_URL`,
+- [x] `src/config/env.ts`: zod schema for `PORT` (default 8080), `NODE_ENV`, `DATABASE_URL`,
       `WEB_ORIGIN` (comma-separated allowed browser origins; `http://localhost:8081` in dev),
       `LOG_LEVEL`. List them all in `apps/server/.env.example` with a comment each. Later sections
       add their own vars to the same schema.
-- [ ] `ZodValidationPipe` and the global exception filter in `src/common/`.
-- [ ] `HealthModule`: `GET /api/health` → `{ ok: true }`, and checks the DB with `select 1`
+- [x] `ZodValidationPipe` and the global exception filter in `src/common/`.
+- [x] `HealthModule`: `GET /api/health` → `{ ok: true }`, and checks the DB with `select 1`
       (returns 503 if the DB is down; the DB check is added in section 03). Its response schema
       lives in `contracts/common.ts`, like every other response.
-- [ ] `main.ts`: global prefix `api`; `cookie-parser`; `helmet`; CORS for `WEB_ORIGIN` with
+- [x] `main.ts`: global prefix `api`; `cookie-parser`; `helmet`; CORS for `WEB_ORIGIN` with
       `credentials: true`; JSON body limit (e.g. 64 KB); `enableShutdownHooks()` so the DB pool
       closes on SIGTERM (Cloud Run sends it); listen on `0.0.0.0:$PORT`.
-- [ ] `apps/server/Dockerfile`: multi-stage, with the repo root as build context. Stage 1: `npm ci`
+- [x] `apps/server/Dockerfile`: multi-stage, with the repo root as build context. Stage 1: `npm ci`
       for the server workspace and its deps, build `packages/*` and the server. Stage 2: slim Node
       image with only `dist/` outputs and production dependencies (`npm ci --omit=dev` for the
       server workspace). Run as a non-root user and listen on `$PORT`. Add a root `.dockerignore`
       (node_modules, .git, apps/web, .env*, todo).
-- [ ] Root scripts: `dev:server` (package watchers + `nest start --watch`), `docker:server`
+- [x] Root scripts: `dev:server` (package watchers + `nest start --watch`), `docker:server`
       (build the image and run it with `--env-file apps/server/.env -p 8080:8080`).
-- [ ] Root README: a "Run it locally" section: put `DATABASE_URL` in `apps/server/.env`, start the
+- [x] Root README: a "Run it locally" section: put `DATABASE_URL` in `apps/server/.env`, start the
       server, start the web app.
 
 ## Acceptance criteria
@@ -98,3 +98,14 @@ apps/server/src/
 ## Notes
 
 <!-- Anything that turned out different from this plan. -->
+
+- NestJS 12 is ESM-only, so `@orava/server` is `"type": "module"` (Nest CLI 12's default) and
+  imports use `.js` suffixes. It loads `@orava/contracts`/`@orava/core` through their ESM build.
+  The CLI's samples, `@nestjs/observe`, vitest and oxlint were dropped; lint uses the same ESLint
+  config as `packages/`.
+- Wrote the `ZodValidationPipe` ourselves (`src/common/zod-validation.pipe.ts`); no `nestjs-zod`.
+- npm didn't record `@swc/core`'s platform binaries in the lockfile, so the server lists the
+  darwin and linux-gnu ones as `optionalDependencies`. Bump them together with `@swc/core`.
+- Request logs keep only id, method, path (no query) and status; headers and bodies are never
+  logged, and auth/cookie fields are redacted as a second guard.
+- `HealthResponse` is in `contracts/common.ts`.

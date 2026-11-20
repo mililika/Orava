@@ -30,11 +30,23 @@ npm install          # first time only: installs every workspace and builds pack
 
 Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 
-| Command         | What it does                                                                  |
-| --------------- | ----------------------------------------------------------------------------- |
-| `npm run web`   | Opens the app in your browser and rebuilds `packages/` when you change them.  |
-| `npm start`     | Same, but opens Expo's dev menu first instead of the browser.                 |
-| `npm run build` | Builds `packages/core` and `packages/contracts` (`dist/`), then the web app.  |
+| Command              | What it does                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run web`        | Opens the app in your browser and rebuilds `packages/` when you change them.             |
+| `npm start`          | Same, but opens Expo's dev menu first instead of the browser.                            |
+| `npm run dev:server` | Runs the API (`apps/server`) with reload, plus the package watchers.                     |
+| `npm run build`      | Builds `packages/core` and `packages/contracts` (`dist/`), then the web app and the API. |
+
+### Run it locally (web app + API)
+
+1. Copy `apps/server/.env.example` to `apps/server/.env` and set `DATABASE_URL` to the Supabase
+   Postgres connection string (Supabase → Project settings → Database). Never commit `.env`.
+2. Start the API: `npm run dev:server`. It listens on http://localhost:8080; check it with
+   `curl localhost:8080/api/health` (→ `{"ok":true}`). It refuses to start if a var in `.env`
+   is missing or invalid, and names it.
+3. In a second terminal, start the web app: `npm run web` (http://localhost:8081).
+
+`npm run docker:server` builds the API's Docker image and runs it with the same `.env` on port 8080.
 
 While the app is running, the terminal also takes keys: **`w`** browser, **`r`** reload.
 Saving a file reloads the app automatically, including files in `packages/`.
@@ -74,7 +86,13 @@ apps/
       components/               floating Orava, speech bubble, chart, list, header, nav
       lib/                      API and Gemini calls (move to the server in later sections)
       theme.ts                  S-mobiili colors, euro formatting
-  server/                       the NestJS API (coming next)
+  server/                       the NestJS API, @orava/server (everything under /api)
+    src/
+      main.ts                   bootstrap: prefix, helmet, cookies, CORS, body limit
+      config/                   env schema (zod) and the typed AppConfig
+      common/                   ZodValidationPipe, the ApiErrorBody exception filter
+      health/                   GET /api/health
+    Dockerfile                  multi-stage image, built from the repo root
 packages/
   core/                         @orava/core: the Money health engine, pure TypeScript
     src/
