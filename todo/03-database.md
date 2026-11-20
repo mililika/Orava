@@ -25,8 +25,7 @@ create table users (
   username            text not null unique check (username <> '' and username = lower(btrim(username))),
   -- bcrypt ("$2a$12$…"): the random salt and the cost factor are part of the hash itself, so
   -- there's no separate salt column. The plain-text password is never stored.
-  -- Null = no password set yet: this user can't log in.
-  password_hash       text,
+  password_hash       text not null,
   -- Balance before the user's first transaction. Current balance = this + sum of the amounts of
   -- transactions that aren't deleted.
   opening_balance_eur numeric(14,2) not null default 0,
@@ -84,9 +83,9 @@ end $$;
 
 - **Balance** = `users.opening_balance_eur` + sum of `amount_eur` of the user's transactions where
   `deleted_at is null`. It's never stored.
-- **Logins:** the owner sets each user's password directly in Supabase; passwords never appear in
-  the repo or in this plan. `demo` is the public login. A user whose `password_hash` is null can't
-  log in.
+- **Logins:** for these 7 demo users the password is the username (`demo_good` / `demo_good`, …);
+  only bcrypt hashes are stored. `demo` is the public login. Any other user is created by the owner
+  in Supabase with their own password, never written in the repo or this plan.
   Profiles (as scored at the hackathon):
 
   | User | Profile |
