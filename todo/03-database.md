@@ -88,15 +88,16 @@ end $$;
   in Supabase with their own password, never written in the repo or this plan.
   Profiles (as scored at the hackathon):
 
-  | User | Profile |
-  |---|---|
-  | `demo` | Steady (76): fine, but only 2% of income left over |
-  | `demo_good` | Doing great (90): 39% of income left over, invests, 10.8-month buffer |
-  | `demo_headsup` | Heads up (54): spends more than comes in, rent and bills take 47% of income |
-  | `demo_bad` | Needs attention (18): overspends, balance below zero in 2 of the last 3 months |
-  | `demo_young` | Steady (61): 24 years old, everyday extras take 40% of income |
-  | `demo_idle` | Doing great (91) with €13,749 idle money and no investing |
-  | `demo_spending` | Spending account (80): salary moves on to another bank, €7,873 idle |
+  | User            | Profile                                                                        |
+  | --------------- | ------------------------------------------------------------------------------ |
+  | `demo`          | Steady (76): fine, but only 2% of income left over                             |
+  | `demo_good`     | Doing great (90): 39% of income left over, invests, 10.8-month buffer          |
+  | `demo_headsup`  | Heads up (54): spends more than comes in, rent and bills take 47% of income    |
+  | `demo_bad`      | Needs attention (18): overspends, balance below zero in 2 of the last 3 months |
+  | `demo_young`    | Steady (61): 24 years old, everyday extras take 40% of income                  |
+  | `demo_idle`     | Doing great (91) with €13,749 idle money and no investing                      |
+  | `demo_spending` | Spending account (80): salary moves on to another bank, €7,873 idle            |
+
 - **Changing a password** (owner, in the Supabase SQL Editor):
   `update users set password_hash = extensions.crypt('new password', extensions.gen_salt('bf', 12)) where username = '…';`
 - With the original data, `demo` has 659 transactions and a balance of **€12,534.33**.
@@ -107,8 +108,7 @@ end $$;
   Supabase key or a database client library. Don't install `@supabase/supabase-js` anywhere.
 - **Connection:** the Supabase connection string from the dashboard (**Connect → Session pooler**,
   user `postgres.<project-ref>`), in `DATABASE_URL`, with TLS. The session pooler works from
-  anywhere (IPv4) and behaves like a normal Postgres connection. If the transaction pooler (port
-  6543) is ever used instead, prepared statements must be turned off in the driver (e.g.
+  anywhere (IPv4) and behaves like a normal Postgres connection. If the transaction pooler (port 6543) is ever used instead, prepared statements must be turned off in the driver (e.g.
   `prepare: false` in postgres.js). Check Supabase's current docs for the exact strings.
 - **Local development uses the same Supabase database** (there's no local Postgres). Be careful
   with writes: they're real. A second Supabase project for development can be added later.
@@ -163,8 +163,13 @@ end $$;
   `balanceOf()` sums in Postgres (`numeric`) and converts once, so cents don't pick up float errors.
   It returns `undefined` for an unknown user.
 - **Column names are explicit** in `schema.ts` (`passwordHash: text('password_hash')`), not
-  Drizzle's `casing` option, so the file reads like the SQL. Constraint and index names match
-  Postgres's (checked with `drizzle-kit pull`).
+  Drizzle's `casing` option, so the file reads like the SQL. Unique, check and index names match
+  Postgres's (checked with `drizzle-kit pull`); the foreign keys keep Drizzle's default names, which
+  only matter to drizzle-kit, never used here. RLS isn't mirrored in `schema.ts` for the same reason.
+- **Drizzle stays inside `src/db/`:** `DbModule` exports the repositories and `DbHealth` (the
+  `select 1` for health), not the `DB` token. Section 04's `SessionsRepository` goes in `src/db/` too.
+- **Username normalisation** is in `UsersRepository.findByUsername` for now; section 04 should also
+  trim and lowercase in the login zod schema.
 - **`drizzle-kit` isn't a dependency.** Installing it in the workspace failed (tsx's nested esbuild
   clashes with the hoisted platform binary), and it's only needed for the one-off pull check, so
   that ran from a temporary folder outside the repo. The pull matched `schema.ts`.

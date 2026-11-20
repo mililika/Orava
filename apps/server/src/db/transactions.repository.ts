@@ -1,9 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Transaction } from '@orava/core';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql, sum } from 'drizzle-orm';
 
 import { DB, type Db } from './db.js';
 import { transactions, users } from './schema.js';
+
+/** Deleted transactions are hidden everywhere. */
+const notDeleted = isNull(transactions.deletedAt);
 
 @Injectable()
 export class TransactionsRepository {
@@ -21,7 +24,7 @@ export class TransactionsRepository {
         amount: transactions.amountEur,
       })
       .from(transactions)
-      .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+      .where(and(eq(transactions.userId, userId), notDeleted))
       .orderBy(desc(transactions.date), desc(transactions.id));
     return rows.map((row) => ({ ...row, id: String(row.id) }));
   }
@@ -33,15 +36,15 @@ export class TransactionsRepository {
   async balanceOf(userId: string): Promise<number | undefined> {
     const [row] = await this.db
       .select({
-        balance: sql<string>`${users.openingBalanceEur} + coalesce(sum(${transactions.amountEur}), 0)`,
+        balance:
+          sql<number>`${users.openingBalanceEur} + coalesce(${sum(transactions.amountEur)}, 0)`.mapWith(
+            Number,
+          ),
       })
       .from(users)
-      .leftJoin(
-        transactions,
-        and(eq(transactions.userId, users.id), isNull(transactions.deletedAt)),
-      )
+      .leftJoin(transactions, and(eq(transactions.userId, users.id), notDeleted))
       .where(eq(users.id, userId))
       .groupBy(users.id);
-    return row ? Number(row.balance) : undefined;
+    return row?.balance;
   }
 }

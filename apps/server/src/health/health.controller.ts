@@ -1,20 +1,18 @@
-import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import type { HealthResponse } from '@orava/contracts';
-import { sql } from 'drizzle-orm';
 
-import { DB, type Db } from '../db/db.js';
+import { DbHealth } from '../db/db-health.js';
 
 @Controller('health')
 export class HealthController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  constructor(private readonly dbHealth: DbHealth) {}
 
   /** 200 `{ ok: true }` when Postgres answers, 503 otherwise. */
   @Get()
   async check(): Promise<HealthResponse> {
-    try {
-      await this.db.execute(sql`select 1`);
-    } catch (error) {
-      throw new ServiceUnavailableException('The database is unreachable.', { cause: error });
+    const db = await this.dbHealth.isUp();
+    if (!db.up) {
+      throw new ServiceUnavailableException('The database is unreachable.', { cause: db.error });
     }
     return { ok: true };
   }

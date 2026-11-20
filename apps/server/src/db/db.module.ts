@@ -4,6 +4,7 @@ import postgres from 'postgres';
 
 import { AppConfig } from '../config/app-config.js';
 import { DB, type Db } from './db.js';
+import { DbHealth } from './db-health.js';
 import * as schema from './schema.js';
 import { TransactionsRepository } from './transactions.repository.js';
 import { UsersRepository } from './users.repository.js';
@@ -26,10 +27,12 @@ import { UsersRepository } from './users.repository.js';
         return drizzle({ client, schema });
       },
     },
+    DbHealth,
     UsersRepository,
     TransactionsRepository,
   ],
-  exports: [DB, UsersRepository, TransactionsRepository],
+  // Not DB itself: outside src/db/, code goes through repositories, never Drizzle.
+  exports: [DbHealth, UsersRepository, TransactionsRepository],
 })
 export class DbModule implements OnApplicationShutdown {
   private readonly logger = new Logger(DbModule.name);
