@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 .idea/
 /.claude/
+
+# Build output of the shared packages (and any other workspace)
+dist/

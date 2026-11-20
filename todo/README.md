@@ -152,3 +152,5 @@ Deployment comes last.
 ## Progress log
 
 <!-- One line per finished section or notable change: date, section, what changed, PR link. -->
+
+- 2026-11-20 · 01 · npm workspaces monorepo (`apps/web`, `packages/core`, `packages/contracts`), engine moved to `@orava/core`, contracts skeleton, README and comments cleaned up. Done on `post-hackathon-improvements` (no PR).

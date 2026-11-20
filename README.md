@@ -12,11 +12,11 @@ This repo is a clickable prototype with three screens:
 - **Money health**: Orava's verdict and a 0–100 score (tap ⓘ to see how it's calculated),
   three key numbers (safe to spend, left over, piggy bank), where money goes with a what-if
   (type a planned cost, see the score and a 12-month balance line), regular payments, and coming
-  up (what the next months may cost, from the same months last year). Ask Orava is pinned to the bottom. How it all works: `docs/money-health-overview.html`.
+  up (what the next months may cost, from the same months last year). Ask Orava is pinned to the bottom.
 
 Orava floats over Home: drag it anywhere (it snaps to the nearest side), tap it to open
 Money health. It greets you on sign-in and speaks up when a new transaction changes its mood.
-On the sign-in screen, "Continue with demo data" skips the database.
+Everything is behind the sign-in screen: there is no built-in or generated data.
 
 ## Run it
 
@@ -25,36 +25,19 @@ You need **Node.js** (LTS, from nodejs.org) and **git**. That's all.
 ```bash
 git clone https://github.com/mililika/Orava.git
 cd Orava
-npm run setup        # first time only, installs everything
+npm install          # first time only: installs every workspace and builds packages/
 ```
 
 Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 
-| Command                | What it does                                                |
-| ---------------------- | ----------------------------------------------------------- |
-| `npm run web`          | Opens the app in your browser. Fastest while coding.        |
-| `npm run phone`        | Shows a QR code to open the app on your phone (see below).  |
-| `npm run phone:tunnel` | Same, for Wi-Fi where the phone can't see your laptop.      |
-| `npm run ios`          | iPhone Simulator. Mac with Xcode only; use it for the demo. |
-| `npm run android`      | Android Emulator. Needs Android Studio.                     |
+| Command         | What it does                                                                  |
+| --------------- | ----------------------------------------------------------------------------- |
+| `npm run web`   | Opens the app in your browser and rebuilds `packages/` when you change them.  |
+| `npm start`     | Same, but opens Expo's dev menu first instead of the browser.                 |
+| `npm run build` | Builds `packages/core` and `packages/contracts` (`dist/`), then the web app.  |
 
-While the app is running, the terminal also takes keys: **`w`** browser, **`i`** iPhone
-Simulator, **`r`** reload. Saving a file reloads the app automatically.
-
-### On your phone
-
-1. Install **Expo Go** from the App Store or Google Play.
-2. Connect the phone to the **same Wi-Fi** as your laptop.
-3. Run `npm run phone`. A QR code appears in the terminal.
-4. **iPhone:** scan it with the normal Camera app and tap the "Open in Expo Go" banner.
-   **Android:** open Expo Go and tap "Scan QR code".
-5. The first load takes 10–30 seconds. After that, saving a file updates the phone too.
-
-If the phone says it can't connect, the Wi-Fi is probably blocking devices from seeing each
-other (common at events and offices). Stop with Ctrl+C and run `npm run phone:tunnel`
-instead; the first time, it asks to install a small tunnel package: answer yes.
-
-If Expo Go says the project needs a different SDK version, update Expo Go from the store.
+While the app is running, the terminal also takes keys: **`w`** browser, **`r`** reload.
+Saving a file reloads the app automatically, including files in `packages/`.
 
 ## Editor
 
@@ -64,62 +47,81 @@ Any editor works. VS Code and Cursor will offer the recommended extensions
 ```bash
 npm run lint          # ESLint
 npm run format        # Prettier, rewrites files
-npm run typecheck     # TypeScript check
+npm run typecheck     # TypeScript check (every workspace)
 ```
 
 ## Where things are
 
+npm workspaces: two apps and two shared packages.
+
 ```
-mobile/
-  App.tsx                       app entry, phone-sized frame on web
-  src/
-    orava/
-      months.ts                 transactions → monthly totals per basket (pure)
+apps/
+  web/                          the Expo app (web only), @orava/web
+    App.tsx                     app entry, phone-sized frame on web
+    src/
+      orava/
+        Mascot.tsx              the squirrel in 4 moods (SVG + animations)
+        moods.ts                mood colors (the names come from @orava/core)
+        overview.ts             ← Gemini's month overview for the Orava card, cached per month
+      data/
+        categories.ts           category icons and tints (the names come from @orava/core)
+      screens/
+        MainScreen.tsx          tabs, added transactions, floating Orava
+        HomeScreen.tsx          balance + transaction list
+        AddTransactionScreen.tsx  new expense / income
+        HealthScreen.tsx        Money health
+        LoginScreen.tsx         sign-in
+      components/               floating Orava, speech bubble, chart, list, header, nav
+      lib/                      API and Gemini calls (move to the server in later sections)
+      theme.ts                  S-mobiili colors, euro formatting
+  server/                       the NestJS API (coming next)
+packages/
+  core/                         @orava/core: the Money health engine, pure TypeScript
+    src/
+      months.ts                 transactions → monthly totals per basket
       baskets.ts                which basket each category belongs to
-      score.ts                  ← the 5-pillar Money health score (pure)
+      score.ts                  ← the 5-pillar Money health score
       logic.ts                  ← Orava's mood and sentence from the score
-      health.ts                 ← everything Money health shows (pure)
+      health.ts                 ← everything Money health shows (buildHealth, reportForMonth)
       recurring.ts              regular payments detection
       ahead.ts                  coming up: what the next 3 months leave to spend (keep aside / free)
       growth.ts                 idle money (the Idle money tile and the chat)
-      coach.ts                  ← Gemini coach prompt + the user's data as context (pure)
-      overview.ts               ← Gemini's month overview for the Orava card, cached per month
-      types.ts                  the contract between data and Orava
-      Mascot.tsx                the squirrel in 4 moods (SVG + animations)
-      moods.ts                  mood names and colors
-    data/
-      demoAccount.ts            12 months of generated demo transactions (two demo accounts)
-      benchmarks.json           generated by db/export-benchmarks.sh, do not edit
+      chat.ts                   Ask Orava's offline answers
+      coach.ts                  ← Gemini coach prompt + the user's data as context
+      categories.ts             category names, money in/out, transaction types
+      moods.ts                  mood names
+      signature.ts              fingerprint of a month's data (overview cache key)
+      format.ts                 euro formatting
+      types.ts                  Transaction, Account, Mood, OravaState
+      benchmarks.json           static aggregate data from the S-Bank dataset analysis
       benchmarks.ts             typed access to benchmarks.json
-      categories.ts             category names, icons, tints
-    screens/
-      MainScreen.tsx            tabs, added transactions, floating Orava
-      HomeScreen.tsx            balance + transaction list
-      AddTransactionScreen.tsx  new expense / income
-      HealthScreen.tsx          Money health
-      LoginScreen.tsx           sign-in (Supabase) or demo data
-    components/                 floating Orava, speech bubble, chart, list, header, nav
-    theme.ts                    S-mobiili colors, euro formatting
+  contracts/                    @orava/contracts: the API's request/response shapes (zod)
+todo/                           the post-hackathon plan
 ```
+
+Both packages are compiled with `tsup` into `dist/` (ESM + CJS + types); the web app imports
+them as `@orava/core` and `@orava/contracts`. `npm install` builds them once, and `npm run web`
+keeps them rebuilding while you work.
 
 ### How data flows
 
 ```
 transactions ──monthlyTotals()──▶ MonthTotals[] ──scoreOf()──▶ Score ──evaluateOrava()──▶ OravaState
- (demoAccount.ts / api.ts)          (months.ts)      (score.ts)            (logic.ts)
+ (lib/api.ts)                    (months.ts)      (score.ts)            (logic.ts)
                                          └── buildHealth() (health.ts) ──▶ HealthReport ──▶ HealthScreen
+                                             (all in packages/core)
 ```
 
-- **Want smarter moods or metrics?** Edit `src/orava/` only. Every file there is pure (no UI
-  or network), so it can be unit tested or moved to a backend later without touching screens.
-- **Want real data?** Login already loads it through `src/lib/api.ts`. Anything that produces
+- **Want smarter moods or metrics?** Edit `packages/core/` only. Every file there is pure (no UI,
+  network or storage), and the server will use the same code.
+- **Want real data?** Login already loads it through `apps/web/src/lib/api.ts`. Anything that produces
   `Transaction[]` and a balance works.
-- **Want a new screen or card?** Add it under `src/components/` and use the colors in `theme.ts`.
+- **Want a new screen or card?** Add it under `apps/web/src/components/` and use the colors in `theme.ts`.
 
 ### Money health score and moods
 
 The score (0–100) adds five pillars, measured over the last 3 months. Each anchor is cited
-and checked against the whole dataset (`db/benchmarks.sql`, table `bench_score_pillar`):
+and checked against the whole dataset (`pillars` in `packages/core/src/benchmarks.json`):
 
 | Pillar                 | Points | Full at          | Zero at | Why                                                                  |
 | ---------------------- | ------ | ---------------- | ------- | -------------------------------------------------------------------- |
@@ -143,13 +145,13 @@ account is scored as a spending account (`variant: 'pocket'`): within what stays
 below zero (25), cushion of 2 months of this account's spending (20), money at work (20, idle
 money ≤ 2 months full, ≥ 12 months none). Same 0–100 scale and moods.
 
-**Idle money** (everyone, `src/orava/growth.ts`): the lowest balance of the last 3 months above
+**Idle money** (everyone, `packages/core/src/growth.ts`): the lowest balance of the last 3 months above
 a 2-month spending cushion. Spending accounts show it as a tile; Ask Orava ("Is my money
 working?") gives a 10-year comparison in today's euros: current account 0.37%, savings deposit
 2.57% (Bank of Finland), world equities 3.5% after inflation (UBS Yearbook 2025), inflation 2.5%
 (Statistics Finland).
 
-### Orava's words come from Gemini (`src/orava/overview.ts`, `src/orava/coach.ts`)
+### Orava's words come from Gemini (`apps/web/src/orava/overview.ts`, `packages/core/src/coach.ts`)
 
 The Orava card on Home and the Money health hero show Gemini's read of the month: one short
 sentence, a "Good" line and a "Watch" line. There are no hardcoded reactions: every time a
@@ -157,27 +159,6 @@ transaction is added or removed, Gemini looks at the whole state again (score, t
 goes, the last 6 months of transactions, peers and Finnish benchmarks). Overviews are cached per
 month, so a month is only asked again when its transactions change; the 10 newest months are
 kept. Ask Orava (the chat at the bottom of Money health) streams its answers from the same
-context. Set `EXPO_PUBLIC_GEMINI_API_KEY` in `mobile/.env` (see `.env.example`).
+context. Set `EXPO_PUBLIC_GEMINI_API_KEY` in `apps/web/.env` (see `.env.example`).
 
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.
-
-## Data
-
-The real challenge data (3.6M transactions, 5,100 customers, Oct 2024 – Sep 2026) lives in a
-Postgres `transactions` table, run in Docker on the data owner's machine (port 5433).
-The benchmarks behind Money health are built from it:
-
-```bash
-docker exec -i hackathon psql -U postgres -d hackathon < db/benchmarks.sql   # builds the bench_* tables
-db/export-benchmarks.sh                                                     # writes mobile/src/data/benchmarks.json
-```
-
-**Demo logins for every scenario.** `db/seed-demo-users.sql` adds seven logins to Supabase
-(`demo_good`, `demo_steady`, `demo_headsup`, `demo_bad`, `demo_young`, `demo_idle`,
-`demo_spending`), each a real dataset customer with all 24 months of transactions. Paste it into
-the Supabase SQL editor; the password and what each login shows are at the top of the file. It is
-safe to re-run and adapts to your tables (only existing columns, password format detected).
-Rebuild it with `db/make-demo-seed.sh`.
-
-The demo account (`demoAccount.ts`) is 12 generated months shaped like the dataset's median
-customer, with regular payments and seasonal moments so every Money health feature shows.
