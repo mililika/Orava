@@ -7,7 +7,7 @@ user adds or deletes are saved, so they're still there after a reload.
 
 ## Decisions
 
-- **"Today" stays tied to the data.** The dataset and the demo account end in Sept 2026, so the app
+- **"Today" stays tied to the data.** The challenge data ends in Sept 2026, so the app
   treats the newest `seed` transaction date as today (as `MainScreen.tsx` does now). New
   transactions get that date. The server decides the date, not the client. Put this in one
   function, `todayFor(userId)`, so switching to the real date later is a one-line change.
@@ -46,7 +46,7 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 - [ ] `AccountController` and `TransactionsController`: the three routes, validated with the
       contracts schemas, typed with the contracts response types, user from `@CurrentUser()`
       (the global `SessionGuard` already requires a session).
-- [ ] Limit per user: at most 500 `user` transactions (stops a guest from filling the DB);
+- [ ] Limit per user: at most 500 `user` transactions (keeps one account from filling the DB);
       return 409 with a readable message beyond that.
 
 ### Web app
@@ -55,7 +55,8 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
       `@orava/contracts`. `AddTransactionScreen`'s `NewTx` becomes `CreateTransactionRequest`.
 
 - [ ] After login (and on reload via `/api/me`), load `/api/account`. Remove the client-side
-      `demoAccount()` call and the TODO from section 04.
+      `demoAccount()` call and the TODO from section 04, and delete `demoAccount.ts` (nothing uses it
+      any more).
 - [ ] `MainScreen.tsx`: `save` and `remove` call the API. Keep the screen responsive: update the
       list right away, then reconcile with the server's response (replace the temporary id with the
       real one, use the returned balance). On failure, undo the change and show the error in the
@@ -69,7 +70,7 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 - With the server stopped, adding a transaction shows an error toast and the list goes back to how
   it was.
 - User A can't delete user B's transaction (404).
-- Money health for a freshly seeded `demo` user is identical to before this section.
+- Money health for `demo` matches what it showed with the same data before this section.
 
 ## Notes
 

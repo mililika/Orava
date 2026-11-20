@@ -13,10 +13,13 @@ reading the rest of the plan first. Read this file first, then the section you a
   health report (score, moods, safe to spend, recurring payments, months ahead, idle money).
 - AI (Gemini) is called **from the browser** with a bundled key (`EXPO_PUBLIC_GEMINI_API_KEY`).
   The client builds the whole system prompt, and the per-user rate limit is counted on the device.
-- Login was Supabase RPC with **plain-text passwords** sent on every request. **The Supabase project
-  and the Google Cloud project have been deleted**, so login, real data and AI don't work right
-  now. Only "Continue with demo data" works (it's generated in the client). The old keys are dead,
-  so nothing that leaked needs rotating.
+- Login was Supabase RPC with **plain-text passwords** sent on every request. The old Supabase
+  project and the Google Cloud project were deleted, so the old keys are dead and nothing that
+  leaked needs rotating. Until section 04, login and AI don't work; only "Continue with demo data"
+  does (it's generated in the client).
+- **The database is ready.** A new Supabase project holds the tables and data, created once by
+  the owner with SQL files that aren't kept in the repo. Agents only connect to it; the schema is
+  in section 03.
 - Transactions you add or delete only live in memory and are lost on logout.
 - The hackathon's SQL files, data scripts and analysis docs (`db/`, `docs/`) were never committed
   and have been **removed from the repo** (archived outside it). Nothing in the new setup uses
@@ -43,7 +46,7 @@ reading the rest of the plan first. Read this file first, then the section you a
                                    └───────────┬───────────┘
                                                │
                                    ┌───────────▼───────────┐
-                                   │ Postgres (managed)    │  users, transactions, sessions
+                                   │ Supabase Postgres     │  users, transactions, sessions
                                    └───────────────────────┘
 ```
 
@@ -65,8 +68,8 @@ apps/server (NestJS)       apps/web (Expo)
       └── packages/core (Money health engine; the web app uses it too)
 ```
 
-Locally, `docker compose up` runs Postgres (and optionally the server). The web app runs with
-`npm run web` as before.
+Locally, the server (`npm run dev:server`) connects to the same Supabase database, and the web app
+runs with `npm run web` as before. There's no local database.
 
 ## Decisions (change them here, before starting, if you disagree)
 
@@ -76,15 +79,15 @@ Locally, `docker compose up` runs Postgres (and optionally the server). The web 
 | Tests | **None for now.** No automated tests; verify by typecheck and by running the app (see rules below). | The owner's call: tests would mostly be noise at this stage. |
 | Package manager | **npm** (workspaces, one root `package-lock.json`). Not pnpm or yarn. | Already used; works with Expo's Metro and Docker without extra config. |
 | Repo | npm workspaces monorepo: `apps/web` (the current `mobile/`), `apps/server`, `packages/core`, `packages/contracts` | The server needs the same health engine as the client to build AI context, and both sides share the API contracts. |
-| Client ↔ data | **The web app talks only to our API.** No database client, database URL or AI key in the web app; no direct database access from the browser in any form. Checked in CI (section 07). | One place to enforce auth, validation and limits; secrets stay on the server. |
+| Client ↔ data | **The web app talks only to our API.** No database client, Supabase SDK or key, database URL or AI key in the web app; no direct database access from the browser in any form. Supabase's Data API is locked out in the schema (RLS on, API roles revoked). Checked in CI (section 07). | One place to enforce auth, validation and limits; secrets stay on the server. |
 | Server | Node (current LTS) + TypeScript + **NestJS** (Express adapter) | Structured modules, dependency injection, guards and pipes. A well-known framework to learn. |
 | Contracts | **zod** schemas in `packages/contracts` (`@orava/contracts`) for every request and response body, query and SSE event. The server validates with them through a zod validation pipe; the web app uses the inferred types (and parses responses with them in dev). Env vars are also validated with zod. | One definition per shape: a change on one side is a type error on the other. |
-| Database | **Postgres**. Docker Compose locally, a managed Postgres in prod (picked in `08-deployment.md`). **Drizzle ORM** with SQL migrations via drizzle-kit. Data tables: **`users`** and **`transactions`** (per user), plus **`sessions`**, which login needs. Nothing else: no benchmark, analysis or AI tables. Table names are **plural, snake_case** (`users`, `transactions`, `sessions`), the most common Postgres convention and Drizzle's default in its docs. | Standard, portable, typed, and as small as the app allows. |
-| Auth | **Our own session auth** in the server: argon2id password hashes, opaque session token in an `httpOnly` cookie, sessions stored in Postgres. No third-party auth provider. | Supabase is gone. The surface is small (login, logout, guest, me), and it stays portable. |
-| Sign-up | **No public sign-up in v1.** Users come from seed scripts and an admin CLI. "Try the demo" creates a temporary guest user with its own copy of the synthetic demo data. | The app is only meaningful with transaction history, which real sign-ups wouldn't have. |
-| Data | The **synthetic demo account** (`demoAccount.ts`, moved to `@orava/core` in section 01) is the only seed data, locally and in production. No real dataset rows anywhere in the repo or the database. | No licensing questions, and one seed path to maintain. |
+| Database | **Supabase, used only as hosted Postgres** (no Supabase Auth, Data API or client SDK). Already set up by the owner (schema in section 03; the SQL files aren't in the repo); the same database serves local development and production. Tables: **`users`**, **`transactions`** (per user), and **`sessions`** (login). Nothing else. Plural, snake_case names. The server uses **Drizzle ORM** as a typed query builder only; no migrations tool. | Done once by the owner, so implementation agents don't touch the database. |
+| Auth | **Our own session auth** in the server: **bcrypt** password hashes (cost 12; salt is part of the hash), opaque session token in an `httpOnly` cookie, sessions stored in Postgres. No Supabase Auth or other provider. | Small surface (login, logout, me), portable. bcrypt because the existing hashes were made with Postgres's `pgcrypto`. |
+| Users | **Seven users from the challenge data, all can log in.** `demo` / `demo` is the public login; the other six (`demo_good`, `demo_headsup`, `demo_bad`, `demo_young`, `demo_idle`, `demo_spending`) share one password the owner keeps outside the repo, so different money situations can be shown live. New users or password changes are done by the owner in SQL (snippet in section 03). No public sign-up, no guest or "Continue with demo data" mode. | Shows every Money health state with real-looking data; no anonymous AI usage. |
+| Data | Loaded once into Supabase: the 7 hand-picked customers of the synthetic S-Bank Junction 2026 challenge data (one per Money health state; `demo` was `demo_steady`), 3,331 transactions, Oct 2024 – Sep 2026. The generated `demoAccount.ts` is deleted once login works (sections 04–05). | Synthetic data from the challenge organisers. |
 | AI | Gemini is called **only from the server**. The server builds the prompt from the DB, not from the client. Overview cache and usage limits are kept **in server memory** (no tables). | Fixes the key leak and stops the API from becoming an open Gemini relay. In-memory is enough at 1–2 Cloud Run instances. |
-| Hosting | **Vercel** (web) + **Google Cloud Run** (server, region `europe-north1`) + managed Postgres. Vercel rewrites `/api/*` to Cloud Run so the browser sees one origin. | Standard "frontend on a CDN, API in a container" setup, and it keeps cookies first-party. |
+| Hosting | **Vercel** (web) + **Google Cloud Run** (server, region `europe-north1`) + **Supabase** Postgres. Vercel rewrites `/api/*` to Cloud Run so the browser sees one origin. | Standard "frontend on a CDN, API in a container" setup, and it keeps cookies first-party. |
 
 ## Open questions for the owner
 
@@ -102,13 +105,13 @@ Deployment comes last.
 | # | File | Result |
 |---|---|---|
 | 01 | [01-repo-and-core.md](01-repo-and-core.md) | Monorepo, shared `@orava/core` and `@orava/contracts` packages, repo cleanup |
-| 02 | [02-server.md](02-server.md) | NestJS server skeleton, zod pipe, config, Dockerfile, docker-compose |
-| 03 | [03-database.md](03-database.md) | `users`, `transactions`, `sessions`; migrations; demo user seed |
-| 04 | [04-auth.md](04-auth.md) | Login, logout, guest demo, sessions; client login wired to the server |
+| 02 | [02-server.md](02-server.md) | NestJS server skeleton, zod pipe, config, Dockerfile |
+| 03 | [03-database.md](03-database.md) | Connect the server to the ready Supabase database; Drizzle schema and repositories |
+| 04 | [04-auth.md](04-auth.md) | Login, logout, sessions; client login wired to the server; demo mode removed |
 | 05 | [05-transactions.md](05-transactions.md) | Transactions API; added and deleted transactions persist |
 | 06 | [06-ai.md](06-ai.md) | Overview and chat on the server, rate limits, client switched over |
 | 07 | [07-ci.md](07-ci.md) | GitHub Actions: format, lint, typecheck, build, leak guards |
-| 08 | [08-deployment.md](08-deployment.md) | Cloud Run, managed Postgres, Vercel, CI deploys |
+| 08 | [08-deployment.md](08-deployment.md) | Cloud Run, Vercel, CI deploys (database already exists) |
 | 09 | [09-later.md](09-later.md) | Nice-to-haves, not scheduled |
 
 ## Rules for whoever implements a section
@@ -130,8 +133,9 @@ Deployment comes last.
   network or storage.
 - **Never commit secrets.** `.env` files are gitignored. Every new env var goes into the matching
   `.env.example` with a comment.
-- **Keep the database small.** Don't add tables beyond `users`, `transactions` and `sessions`
-  without the owner agreeing first; update the Decisions table if they do.
+- **Don't change the database.** The schema and data are done (section 03). No migrations, seed
+  scripts or new tables; if something truly needs a change, ask the owner and write it as a new
+  SQL file for them to run.
 - **Don't write automated tests for now.** No unit, integration or e2e tests, no test runner
   (Vitest, Jest, supertest, …), no `test` script, no test files. This is a deliberate decision by
   the owner: most tests would be noise at this stage. Throwaway scripts for a one-off check are

@@ -11,17 +11,13 @@ without the owner saying so for that step.
 
 ## Decisions
 
-- **Region:** Cloud Run in `europe-north1` (Finland). Pick the Postgres region closest to it that
-  the provider offers.
-- **Postgres provider:** **Neon** by default (managed, has a free tier, standard Postgres, branching
-  for previews). Alternatives: Supabase used as plain Postgres, or Cloud SQL (more expensive at
-  the smallest size). Anything that gives a `DATABASE_URL` with TLS works; nothing in the code is
-  provider-specific. Check current free-tier limits before choosing.
-- **Database access:** only the Cloud Run service (and the migration job) gets `DATABASE_URL`.
-  Don't enable any HTTP/REST/"data API" feature the Postgres provider offers, never put the
-  connection string in Vercel's env vars, and use a dedicated app role that owns only the app's
-  tables (not the provider's admin role). If the provider supports IP allowlisting, it's a nice
-  extra, but Cloud Run has no fixed outbound IP without a NAT setup, so it's optional.
+- **Region:** Cloud Run in `europe-north1` (Finland), close to the Supabase project's region.
+- **Database:** the existing Supabase project (section 03). Nothing to create or migrate here.
+- **Database access:** only the Cloud Run service gets `DATABASE_URL` (Supabase session pooler
+  string). Never put it or any Supabase key in Vercel's env vars. In the Supabase dashboard,
+  consider turning the Data API off entirely, since nothing uses it (the schema already locks it
+  out). Supabase network restrictions (IP allowlisting) are optional: Cloud Run has no fixed
+  outbound IP without a NAT setup.
 - **Secrets** (`DATABASE_URL`, `GEMINI_API_KEY`) live in Google Secret Manager and are mounted into
   Cloud Run as env vars. Never in the image, the repo or GitHub Actions logs.
 - **One origin for the browser:** `vercel.json` rewrites `/api/:path*` to the Cloud Run URL. The web
@@ -31,8 +27,13 @@ without the owner saying so for that step.
   `api.<domain>` on Cloud Run (same site, so `SameSite=Lax` cookies still work), and the client
   calls `api.<domain>` directly.
 - **CI/CD:** GitHub Actions authenticates to Google Cloud with **Workload Identity Federation**
-  (no long-lived JSON key). On push to `main`: build image → push to Artifact Registry → run
-  migrations → deploy to Cloud Run. Vercel deploys the web app itself from its GitHub integration.
+  (no long-lived JSON key). On push to `main`: build image → push to Artifact Registry → deploy to
+  Cloud Run. Vercel deploys the web app itself from its GitHub integration.
+- **The public `demo` login is shared.** Everyone who logs in as `demo` sees and changes the same
+  data, and shares one AI hourly limit (which also caps what visitors can spend on Gemini).
+  To reset it, run in the Supabase SQL Editor:
+  `delete from transactions where source = 'user' and user_id = (select id from users where username = 'demo'); update transactions set deleted_at = null where user_id = (select id from users where username = 'demo');` See `09-later.md` for a read-only or
+  self-resetting demo.
 - **Cost guards:** Cloud Run min instances 0, max instances 2; a Google Cloud budget alert; the
   `AI_DAILY_LIMIT` from section 06; a spending cap or quota on the Gemini key.
 
@@ -52,9 +53,8 @@ without the owner saying so for that step.
 
 ### Database
 
-- [ ] Create the managed Postgres; store the connection string (with `sslmode=require`) in Secret
-      Manager as `database-url`.
-- [ ] Run `db:migrate` and `db:seed` against it once from a laptop, with `SEED_DEMO_PASSWORD` set.
+- [ ] Store the Supabase session pooler connection string in Secret Manager as `database-url`.
+      The tables and data already exist.
 
 ### Cloud Run
 
@@ -81,7 +81,7 @@ without the owner saying so for that step.
 - [ ] Env var `EXPO_PUBLIC_API_URL` = empty, for Production and Preview.
 - [ ] Preview deployments: decide whether PR previews talk to the production API (simple) or a
       separate staging service (safer). Default: production API, since previews only read and
-      write the demo or guest data of whoever is logged in.
+      write the data of whoever is logged in.
 - [ ] Set `WEB_ORIGIN` on Cloud Run to the production Vercel URL (plus the custom domain if any).
 
 ### GitHub Actions deploy (`.github/workflows/deploy.yml`)
@@ -90,18 +90,17 @@ without the owner saying so for that step.
       a deploy service account with Artifact Registry writer, Cloud Run admin and
       service-account-user on the runtime account.
 - [ ] Trigger only for server changes: `on.push.branches: [main]` with
-      `paths: ['apps/server/**', 'packages/**', 'package-lock.json', 'docker-compose.yml',
+      `paths: ['apps/server/**', 'packages/**', 'package-lock.json',
       '.github/workflows/deploy.yml']`, plus `workflow_dispatch` for manual redeploys. A commit
       that only touches `apps/web` deploys the web app on Vercel and leaves Cloud Run alone.
-- [ ] On push to `main` after CI passes: build and push the image tagged with the commit SHA, run
-      migrations (a Cloud Run job using the same image, or a step with `DATABASE_URL` fetched from
-      Secret Manager), deploy the new revision.
+- [ ] On push to `main` after CI passes: build and push the image tagged with the commit SHA, deploy
+      the new revision.
 - [ ] Keep the last few image tags so a rollback is `gcloud run services update-traffic` to an
       older revision. Document it in `docs/deploy.md`.
 
 ## Acceptance criteria
 
-- The Vercel URL opens the app, "Continue with demo data" works, and so does login as `demo`.
+- The Vercel URL opens the app, and logging in as `demo` / `demo` works.
 - Adding a transaction persists across reloads.
 - The Ask Orava chat streams in production (word by word, not all at once at the end).
 - The session cookie is `HttpOnly`, `Secure`, first-party (check in browser dev tools).

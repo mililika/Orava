@@ -1,7 +1,7 @@
 # 02 · Server skeleton (NestJS)
 
 **Goal:** a minimal NestJS API in `apps/server` that runs locally, in Docker, and talks to Postgres
-from docker-compose, with zod validation wired to `@orava/contracts`. No features yet, just the
+on Supabase (section 03 wires up the queries), with zod validation wired to `@orava/contracts`. No features yet, just the
 frame every later section builds on.
 
 **Depends on:** 01.
@@ -73,27 +73,20 @@ apps/server/src/
 - [ ] `main.ts`: global prefix `api`; `cookie-parser`; `helmet`; CORS for `WEB_ORIGIN` with
       `credentials: true`; JSON body limit (e.g. 64 KB); `enableShutdownHooks()` so the DB pool
       closes on SIGTERM (Cloud Run sends it); listen on `0.0.0.0:$PORT`.
-- [ ] `docker-compose.yml` at the repo root:
-  - `db`: official `postgres` image (pin the current major version), named volume, healthcheck,
-    port `5432` published to `127.0.0.1` only, credentials from a root `.env` with defaults that work
-    out of the box for local development.
-  - `server`: built from `apps/server/Dockerfile`, depends on `db` being healthy, `DATABASE_URL`
-    pointing at `db`. Behind a compose profile (`--profile full`) so the usual dev setup is
-    `docker compose up db` plus `npm run dev:server` with hot reload.
 - [ ] `apps/server/Dockerfile`: multi-stage, with the repo root as build context. Stage 1: `npm ci`
       for the server workspace and its deps, build `packages/*` and the server. Stage 2: slim Node
       image with only `dist/` outputs and production dependencies (`npm ci --omit=dev` for the
       server workspace). Run as a non-root user and listen on `$PORT`. Add a root `.dockerignore`
       (node_modules, .git, apps/web, .env*, todo).
-- [ ] Root scripts: `dev:server` (package watchers + `nest start --watch`), `db:up`
-      (`docker compose up -d db`), `db:down`.
-- [ ] Root README: a "Run it locally" section: start Postgres, start the server, start the web app.
+- [ ] Root scripts: `dev:server` (package watchers + `nest start --watch`), `docker:server`
+      (build the image and run it with `--env-file apps/server/.env -p 8080:8080`).
+- [ ] Root README: a "Run it locally" section: put `DATABASE_URL` in `apps/server/.env`, start the
+      server, start the web app.
 
 ## Acceptance criteria
 
-- `docker compose up db` and `npm run dev:server` start cleanly;
-  `curl localhost:8080/api/health` returns `{ "ok": true }`.
-- `docker compose --profile full up --build` runs the server in Docker, and the same curl works.
+- `npm run dev:server` starts cleanly; `curl localhost:8080/api/health` returns `{ "ok": true }`.
+- `npm run docker:server` runs the server in Docker, and the same curl works.
 - The image runs as non-root and contains no `.env` files or TypeScript sources
   (`docker run --rm <image> ls -la` to check).
 - Starting the server without `DATABASE_URL` fails with a clear message naming the missing var.
