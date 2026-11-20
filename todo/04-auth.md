@@ -2,7 +2,7 @@
 
 **Goal:** real login with hashed passwords and server sessions, and the web app's login screen
 wired to the server. The "Continue with demo data" mode is removed: you sign in as one of
-the users in the database (section 03; `demo` / `demo` is the public login). After this section, the client never sees a password again after submitting it, and no
+the users in the database (section 03; `demo` is the public login). After this section, the client never sees a password again after submitting it, and no
 Supabase code is left.
 
 **Depends on:** 02, 03.
@@ -12,7 +12,9 @@ Supabase code is left.
 - **Passwords:** bcrypt. The stored hashes (`$2a$12$…`) were made with Postgres's `pgcrypto`
   (`crypt(pw, gen_salt('bf', 12))`); each one contains its own random salt and the cost factor, so
   verifying needs only the hash. Use `bcryptjs` (pure JS, no native build in Docker) or `bcrypt`,
-  and check it verifies a `$2a$` hash from the database. The server only **verifies** passwords;
+  and check it verifies a `$2a$` hash from the database. A user with a null `password_hash` can't
+  log in: treat it like an unknown user (verify against the dummy hash, then fail). The server
+  only **verifies** passwords;
   it never creates users or changes passwords in this plan (the owner does that in SQL).
 - **Sessions:** on login, generate 32 random bytes (`crypto.randomBytes`), send them base64url in
   a cookie, store only `sha256(token)` in `sessions.id`. Lifetime 30 days, sliding: extend
@@ -84,9 +86,10 @@ Supabase code is left.
 
 ## Acceptance criteria
 
-- Log in as `demo` / `demo`, reload the page: still logged in. Sign out, reload: login screen.
-- `select * from sessions` shows hashes, never the cookie value. Login works for `demo` / `demo`
-  against the existing `$2a$12$…` hash.
+- Log in as `demo` (password set by the owner), reload the page: still logged in. Sign out, reload: login screen.
+- `select * from sessions` shows hashes, never the cookie value. Login works for `demo` against
+  its existing `$2a$12$…` hash; a user with no password set gets the same "wrong username or
+  password" error.
 - Wrong password and unknown username give the same message and similar response times.
 - 11 bad logins in a row → 429.
 - A POST to `/api/auth/logout` with `Origin: https://evil.example` → 403.

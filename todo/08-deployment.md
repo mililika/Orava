@@ -100,7 +100,7 @@ without the owner saying so for that step.
 
 ## Acceptance criteria
 
-- The Vercel URL opens the app, and logging in as `demo` / `demo` works.
+- The Vercel URL opens the app, and logging in as `demo` works.
 - Adding a transaction persists across reloads.
 - The Ask Orava chat streams in production (word by word, not all at once at the end).
 - The session cookie is `HttpOnly`, `Secure`, first-party (check in browser dev tools).
