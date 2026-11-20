@@ -21,7 +21,6 @@ async function bootstrap() {
   app.use(helmet());
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '64kb' });
-  app.useBodyParser('urlencoded', { limit: '64kb', extended: false });
   app.enableCors({ origin: config.get('WEB_ORIGIN'), credentials: true });
   app.enableShutdownHooks();
 

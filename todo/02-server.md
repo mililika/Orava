@@ -63,8 +63,9 @@ apps/server/src/
 - [x] Scaffold `apps/server` (`@orava/server`) with the Nest CLI, trim the samples, switch to the SWC
       builder, add `@orava/contracts` and `@orava/core` as workspace dependencies.
 - [x] `src/config/env.ts`: zod schema for `PORT` (default 8080), `NODE_ENV`, `DATABASE_URL`,
-      `WEB_ORIGIN` (comma-separated allowed browser origins; `http://localhost:8081` in dev),
-      `LOG_LEVEL`. List them all in `apps/server/.env.example` with a comment each. Later sections
+      `WEB_ORIGIN` (comma-separated allowed browser origins; `http://localhost:8081` in dev,
+      required in production), `LOG_LEVEL`. List them in `apps/server/.env.example` (no comments;
+      `PORT` left out, since it defaults to 8080 and Cloud Run sets it). Later sections
       add their own vars to the same schema.
 - [x] `ZodValidationPipe` and the global exception filter in `src/common/`.
 - [x] `HealthModule`: `GET /api/health` → `{ ok: true }`, and checks the DB with `select 1`

@@ -6,7 +6,6 @@ COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/contracts/package.json packages/contracts/
 COPY apps/server/package.json apps/server/
-# --ignore-scripts: the root postinstall builds packages/, which aren't copied in yet.
 RUN npm ci --ignore-scripts -w @orava/server -w @orava/core -w @orava/contracts --include-workspace-root
 COPY packages/core packages/core
 COPY packages/contracts packages/contracts
