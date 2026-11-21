@@ -20,6 +20,6 @@
     "format": "npm run format --workspaces --if-present"
   },
   "devDependencies": {
-    "concurrently": "^10.0.7"
+    "concurrently": "10.0.7"
   }
 }

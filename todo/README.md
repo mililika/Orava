@@ -127,8 +127,9 @@ Deployment comes last.
   Check the current docs for the installed version before using an API. For Expo, follow
   `apps/web/AGENTS.md` (was `mobile/AGENTS.md`).
 - **Install packages correctly.** Use `npx expo install` for anything in the web app. Use
-  `npm install -w <workspace>` for the others. Don't pin versions from this plan. Install the
-  current ones and commit the lockfile.
+  `npm install -w <workspace>` for the others. Don't take versions from this plan: install the
+  current ones and commit the lockfile. Versions are **exact** (no `^` or `~`; the root `.npmrc`
+  has `save-exact=true`), so nothing updates unless someone changes a version on purpose.
 - **Keep the engine pure.** `packages/core` never imports React, React Native, Node-only modules,
   network or storage.
 - **Never commit secrets.** `.env` files are gitignored. Every new env var goes into the matching
