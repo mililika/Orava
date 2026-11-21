@@ -43,45 +43,45 @@ Supabase code is left.
 
 ### Contracts (first)
 
-- [ ] `packages/contracts/src/auth.ts`: `LoginRequest` (username 1–64 chars, trimmed; password
+- [x] `packages/contracts/src/auth.ts`: `LoginRequest` (username 1–64 chars, trimmed; password
       1–256), `UserDto`, `LoginResponse` / `MeResponse` (`{ user: UserDto }`).
 
 ### Server (`AuthModule`)
 
-- [ ] `PasswordService.verify(password, hash)`. Also keep one fixed dummy bcrypt hash (cost 12) to
+- [x] `PasswordService.verify(password, hash)`. Also keep one fixed dummy bcrypt hash (cost 12) to
       verify against when the username doesn't exist (see "Errors" above).
-- [ ] `SessionsRepository` on the `sessions` table (section 03's patterns).
-- [ ] `SessionsService`: `create(userId)`, `get(token)` (checks expiry, slides it), `delete(token)`.
-- [ ] `SessionGuard`, registered **globally** (`APP_GUARD`): reads the `orava_session` cookie,
+- [x] `SessionsRepository` on the `sessions` table (section 03's patterns).
+- [x] `SessionsService`: `create(userId)`, `get(token)` (checks expiry, slides it), `delete(token)`.
+- [x] `SessionGuard`, registered **globally** (`APP_GUARD`): reads the `orava_session` cookie,
       loads the session and attaches the user to the request, or throws 401. Routes that don't need
       a session opt out with a `@Public()` decorator (`/api/health`, login). A `@CurrentUser()`
       param decorator gives handlers the user. Secure by default: a new route without a decorator
       requires login.
-- [ ] `OriginGuard` (global, after the session guard): non-GET requests must carry an allowed
+- [x] `OriginGuard` (global, after the session guard): non-GET requests must carry an allowed
       `Origin` header, else 403.
-- [ ] `AuthController` with the four routes, bodies validated with the contracts schemas through
+- [x] `AuthController` with the four routes, bodies validated with the contracts schemas through
       the `ZodValidationPipe`, return types from `@orava/contracts`. Set and clear the cookie with
       Express's `res.cookie` (use `@Res({ passthrough: true })` so Nest still sends the return value).
-- [ ] Throttling with `@nestjs/throttler`: login, per IP and per username. Its default in-memory storage is fine at 1–2 instances; note that in
+- [x] Throttling with `@nestjs/throttler`: login, per IP and per username. Its default in-memory storage is fine at 1–2 instances; note that in
       code. Behind Vercel and Cloud Run, the client IP comes from `X-Forwarded-For`, so set Express's
       `trust proxy` accordingly and check what the throttler uses as the key.
 
 ### Web app
 
-- [ ] `apps/web/src/lib/api.ts`: replace the Supabase RPC code with a small typed client for our
+- [x] `apps/web/src/lib/api.ts`: replace the Supabase RPC code with a small typed client for our
       API. Base URL from `EXPO_PUBLIC_API_URL` (default `http://localhost:8080` in dev; empty string
       in prod, meaning same origin), `credentials: 'include'` on every request. Request and response
       types come from `@orava/contracts`. Errors are parsed with `ApiErrorBody` into a typed
       `ApiError` (status, code, readable message). In development, also parse successful responses
       with the response schema, so a server/client mismatch shows up immediately.
       This file is the **only** place in the web app that does network requests to our server.
-- [ ] `LoginScreen`: "Sign in" calls `/api/auth/login`. **Remove the "Continue with demo data"
+- [x] `LoginScreen`: "Sign in" calls `/api/auth/login`. **Remove the "Continue with demo data"
       button** and its code path. Until section 05 exists, keep loading the generated `demoAccount()` data in the
       client after a successful login, with a TODO.
-- [ ] `App.tsx`: on start, call `/api/me` to restore a session after a page reload; show a
+- [x] `App.tsx`: on start, call `/api/me` to restore a session after a page reload; show a
       loading state meanwhile. "Sign out" calls `/api/auth/logout`.
-- [ ] Any 401 from the API afterwards returns to the login screen.
-- [ ] Remove `EXPO_PUBLIC_SUPABASE_*` from code and `.env.example`; add `EXPO_PUBLIC_API_URL`.
+- [x] Any 401 from the API afterwards returns to the login screen.
+- [x] Remove `EXPO_PUBLIC_SUPABASE_*` from code and `.env.example`; add `EXPO_PUBLIC_API_URL`.
 
 ## Acceptance criteria
 
@@ -97,3 +97,32 @@ Supabase code is left.
 ## Notes
 
 <!-- Anything that turned out different from this plan. -->
+
+- **`GET /api/account` pulled forward from section 05.** `demoAccount()` was already deleted in
+  section 01, so after login there was nothing to show. The read side only needed the existing
+  `TransactionsRepository`, so `AccountResponse` (contracts, checked equal to core's `Account`)
+  and `AccountController` (`src/transactions/`) are in this section. Section 05 adds the writes.
+- **Login throttling is our own `LoginAttempts`, not `@nestjs/throttler`.** The throttler's guard
+  counts every request before the handler runs, so it can't count only failures; counting every
+  login per username would let ten sign-ins by anyone lock out the shared `demo` login. Limit: 10
+  failures per IP and per username in any 15 minutes, `Retry-After` on the 429; a good login clears
+  that username's count. In memory, noted in code.
+- **`TRUST_PROXY_HOPS`** (env, default 0) sets Express's `trust proxy`, so `req.ip` is the browser's
+  address. Behind Vercel → Cloud Run it should be 2; section 08 sets it and checks `req.ip`.
+- **No dummy hash in the repo:** `PasswordService` hashes random bytes (cost 12) at startup and
+  checks unknown usernames against that. Wrong password and unknown user both take ~0.37 s.
+- **`OriginGuard` runs before `SessionGuard`**, not after, so a cross-site request gets 403 without
+  learning whether its cookie is valid. A missing `Origin` is refused too (curl needs `-H Origin:`).
+- **Logout is `@Public()`:** signing out without a valid session is a harmless 204.
+- **Sliding sessions also refresh the cookie:** when `SessionGuard` extends a session (at most once a
+  day), it sets the cookie again, so its `Max-Age` slides with the row's `expires_at`. Expired rows
+  of a user are deleted on their next login.
+- **API responses are `Cache-Control: no-store` and ETags are off.** Express answered `/api/me` and
+  `/api/account` with 304s before; per-user data shouldn't be cached anywhere.
+- Server-side mentions of Supabase (`db.module.ts`, `schema.ts`, `.env.example`) stay: they describe
+  where the Postgres is hosted. No Supabase code or keys are left in `apps/web`.
+- **Checked:** login as `demo` (and `Demo `) and `demo_bad` against their `$2a$12$` hashes; `/api/me`,
+  `/api/account` (659 transactions, €12,534.33); `sessions` holds only 64-hex sha256 ids, never the
+  token; logout deletes the row and the old token gets 401; bad logins → 429 with `Retry-After`;
+  `Origin: https://evil.example` → 403; `/api/account` without a cookie → 401 (no `@Public()`). In
+  the browser: login, reload stays signed in, sign out, reload shows the login screen.

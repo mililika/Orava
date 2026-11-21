@@ -154,3 +154,6 @@ Deployment comes last.
 <!-- One line per finished section or notable change: date, section, what changed, PR link. -->
 
 - 2026-11-20 · 01 · npm workspaces monorepo (`apps/web`, `packages/core`, `packages/contracts`), engine moved to `@orava/core`, contracts skeleton, README and comments cleaned up. Done on `post-hackathon-improvements` (no PR).
+- 2026-11-20 · 02 · NestJS 12 server skeleton in `apps/server`: zod validation pipe, env config, pino logging, error filter, `GET /api/health`, Dockerfile. On `post-hackathon-improvements` (no PR).
+- 2026-11-20 · 03 · Drizzle 0.45 + postgres.js against Supabase: `schema.ts`, `DbModule`, users and transactions repositories, DB check in health. On `post-hackathon-improvements` (no PR).
+- 2026-11-21 · 04 · Session auth (bcrypt, hashed session tokens, httpOnly cookie, global session and Origin guards, login throttling), `GET /api/account` pulled forward from 05, web login wired to the server, Supabase removed from the web app. On `post-hackathon-improvements` (no PR).

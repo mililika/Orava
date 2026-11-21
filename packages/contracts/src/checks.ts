@@ -1,8 +1,9 @@
 // Compile-time checks that the API shapes and the engine's types can't drift apart.
 // Nothing here runs; `npm run typecheck` fails if a check is false.
 
-import type { Transaction } from '@orava/core';
+import type { Account, Transaction } from '@orava/core';
 
+import type { AccountResponse } from './account';
 import type { TransactionDto } from './transactions';
 
 /** True only when A and B are exactly the same type. */
@@ -11,3 +12,4 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 export type TransactionDtoMatchesCore = Expect<Equal<TransactionDto, Transaction>>;
+export type AccountResponseMatchesCore = Expect<Equal<AccountResponse, Account>>;

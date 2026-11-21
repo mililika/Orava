@@ -1,60 +1,96 @@
-// Talks to Supabase over plain REST (PostgREST RPC): the `login` and `my_transactions`
-// functions. Rewritten in section 04 to call our own API instead.
+// The only place in the web app that talks to our server. Every request and response shape comes
+// from @orava/contracts. The session is an httpOnly cookie the browser sends by itself
+// (`credentials: 'include'`); this code never sees it.
 
-import type { Account, Transaction } from '@orava/core';
+import {
+  AccountResponse,
+  ApiErrorBody,
+  type ErrorCode,
+  type LoginRequest,
+  LoginResponse,
+  MeResponse,
+  type UserDto,
+} from '@orava/contracts';
+import type { Account } from '@orava/core';
 
-const URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+/** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
+type Schema<T> = { parse(data: unknown): T };
 
-interface TxRow {
-  tx_id: number | string;
-  tx_date: string;
-  category: string;
-  tx_amount_eur: number | string;
-  balance_after_eur: number | string;
-  transaction_type: string;
-  merchant_id: string | null;
+// Empty in production: the API is on the same origin, behind Vercel's /api rewrite.
+const BASE = process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? 'http://localhost:8080' : '');
+
+/** A failed call. `message` is safe to show; `code` is what to switch on. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: ErrorCode | 'network',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
-async function rpc<T>(fn: string, body: Record<string, string>): Promise<T> {
-  if (!URL || !KEY) {
-    throw new Error('Supabase is not configured. Fill in apps/web/.env and restart Expo.');
-  }
+let onUnauthorized: (() => void) | undefined;
+
+/** Called on every 401, e.g. when the session expired: App.tsx goes back to the login screen. */
+export function setUnauthorizedHandler(handler: (() => void) | undefined): void {
+  onUnauthorized = handler;
+}
+
+async function request<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  schema: Schema<T> | null,
+  body?: unknown,
+): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${URL}/rest/v1/rpc/${fn}`, {
-      method: 'POST',
-      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    res = await fetch(`${BASE}/api${path}`, {
+      method,
+      credentials: 'include',
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    throw new Error('Cannot reach the server. Check your connection.');
+    throw new ApiError(0, 'network', 'Cannot reach the server. Check your connection.');
   }
-  if (!res.ok) throw new Error(`Server error (${res.status}) calling ${fn}.`);
-  return (await res.json()) as T;
+
+  if (!res.ok) {
+    const parsed = ApiErrorBody.safeParse(await res.json().catch(() => null));
+    if (res.status === 401) onUnauthorized?.();
+    throw parsed.success
+      ? new ApiError(res.status, parsed.data.error.code, parsed.data.error.message)
+      : new ApiError(res.status, 'internal', `Server error (${res.status}).`);
+  }
+
+  if (!schema) return undefined as T;
+  const json: unknown = await res.json();
+  // In development, a server/client mismatch fails loudly here instead of somewhere in the UI.
+  return __DEV__ ? schema.parse(json) : (json as T);
 }
 
-/** Checks the credentials and loads that user's transactions. Throws a readable Error. */
-export async function login(username: string, password: string): Promise<Account> {
-  const creds = { p_username: username.trim(), p_password: password };
-  const users = await rpc<{ user_id: number; username: string; customer_id: string | null }[]>(
-    'login',
-    creds,
-  );
-  if (users.length === 0) throw new Error('Wrong username or password.');
+/** Starts a session (sets the cookie). Throws ApiError: 401 wrong login, 429 too many tries. */
+export async function login(username: string, password: string): Promise<UserDto> {
+  const body: LoginRequest = { username, password };
+  return (await request('POST', '/auth/login', LoginResponse, body)).user;
+}
 
-  const rows = await rpc<TxRow[]>('my_transactions', creds); // newest first
-  const txs: Transaction[] = rows.map((r) => ({
-    id: String(r.tx_id),
-    date: r.tx_date,
-    category: r.category,
-    type: r.transaction_type,
-    merchant: r.merchant_id ?? r.category,
-    amount: Number(r.tx_amount_eur),
-  }));
-  return {
-    username: users[0].username,
-    txs,
-    balance: rows.length ? Number(rows[0].balance_after_eur) : 0,
-  };
+export async function logout(): Promise<void> {
+  await request('POST', '/auth/logout', null);
+}
+
+/** The signed-in user, or null when there's no valid session (e.g. after a reload). */
+export async function me(): Promise<UserDto | null> {
+  try {
+    return (await request('GET', '/me', MeResponse)).user;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null;
+    throw e;
+  }
+}
+
+/** The signed-in user's balance and transactions, newest first. */
+export function getAccount(): Promise<Account> {
+  return request('GET', '/account', AccountResponse);
 }

@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 
+import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { AppConfig } from './config/app-config.js';
 import { AppConfigModule } from './config/config.module.js';
 import { DbModule } from './db/db.module.js';
 import { HealthModule } from './health/health.module.js';
+import { TransactionsModule } from './transactions/transactions.module.js';
 
 @Module({
   imports: [
@@ -41,7 +43,9 @@ import { HealthModule } from './health/health.module.js';
       }),
     }),
     DbModule,
+    AuthModule,
     HealthModule,
+    TransactionsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
 })

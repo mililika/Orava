@@ -44,7 +44,9 @@ Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 2. Start the API: `npm run dev:server`. It listens on http://localhost:8080; check it with
    `curl localhost:8080/api/health` (→ `{"ok":true}`, or 503 if the database can't be reached). It refuses to start if a var in `.env`
    is missing or invalid, and names it.
-3. In a second terminal, start the web app: `npm run web` (http://localhost:8081).
+3. In a second terminal, start the web app: `npm run web` (http://localhost:8081). Sign in as
+   `demo` / `demo` (the public demo login). The web app calls the API at http://localhost:8080
+   unless `EXPO_PUBLIC_API_URL` says otherwise.
 
 `npm run docker:server` builds the API's Docker image and runs it with the same `.env` on port 8080.
 
@@ -145,8 +147,8 @@ transactions ──monthlyTotals()──▶ MonthTotals[] ──scoreOf()──�
 
 - **Want smarter moods or metrics?** Edit `packages/core/` only. Every file there is pure (no UI,
   network or storage), and the server will use the same code.
-- **Want real data?** Login already loads it through `apps/web/src/lib/api.ts`. Anything that produces
-  `Transaction[]` and a balance works.
+- **Where does the data come from?** After sign-in, `apps/web/src/lib/api.ts` loads the account
+  (`GET /api/account`) from the server, which reads it from Postgres.
 - **Want a new screen or card?** Add it under `apps/web/src/components/` and use the colors in `theme.ts`.
 
 ### Money health score and moods

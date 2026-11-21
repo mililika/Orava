@@ -1,8 +1,10 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import type { HealthResponse } from '@orava/contracts';
 
+import { Public } from '../auth/decorators.js';
 import { DbHealth } from '../db/db-health.js';
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(private readonly dbHealth: DbHealth) {}

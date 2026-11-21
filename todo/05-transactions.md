@@ -75,3 +75,8 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 ## Notes
 
 <!-- Anything that turned out different from this plan. -->
+
+- **`GET /api/account` already exists (section 04):** `AccountResponse` in `contracts/account.ts`,
+  `AccountController` in `apps/server/src/transactions/`, `getAccount()` in the web app's
+  `lib/api.ts`, called after login and on reload. There's no `demoAccount()` call or TODO left to
+  remove (it was deleted in section 01). This section adds the write side.

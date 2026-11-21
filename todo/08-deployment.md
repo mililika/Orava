@@ -82,6 +82,9 @@ without the owner saying so for that step.
 - [ ] Preview deployments: decide whether PR previews talk to the production API (simple) or a
       separate staging service (safer). Default: production API, since previews only read and
       write the data of whoever is logged in.
+- [ ] Set `TRUST_PROXY_HOPS=2` on Cloud Run (Vercel and Google's front end each add to
+      `X-Forwarded-For`) and check that a login's `req.ip` is the browser's address, since login
+      throttling keys on it.
 - [ ] Set `WEB_ORIGIN` on Cloud Run to the production Vercel URL (plus the custom domain if any).
 
 ### GitHub Actions deploy (`.github/workflows/deploy.yml`)

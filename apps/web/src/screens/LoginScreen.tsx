@@ -1,4 +1,4 @@
-// Username + password sign-in. Calls Supabase through lib/api.ts.
+// Username + password sign-in against our server (lib/api.ts), then loads the account.
 
 import { useState } from 'react';
 import {
@@ -14,7 +14,7 @@ import {
 
 import type { Account } from '@orava/core';
 
-import { login } from '../lib/api';
+import { getAccount, login } from '../lib/api';
 import { colors, radius } from '../theme';
 
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }) {
@@ -32,7 +32,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }
     setBusy(true);
     setError(null);
     try {
-      onLoggedIn(await login(username, password));
+      await login(username, password);
+      onLoggedIn(await getAccount());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
       setBusy(false);

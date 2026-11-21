@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^12.6.0",
     "@orava/contracts": "*",
     "@orava/core": "*",
+    "bcryptjs": "3.0.3",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.4",
     "helmet": "^8.3.0",

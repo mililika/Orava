@@ -18,6 +18,9 @@ export const Env = z
     PORT: z.coerce.number().int().min(1).max(65535).default(8080),
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
     WEB_ORIGIN: z.string().optional(),
+    // How many proxies in front of the server append to X-Forwarded-For, so `req.ip` is the
+    // browser's address (login throttling keys on it). 0 locally; behind Vercel → Cloud Run it's 2.
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
