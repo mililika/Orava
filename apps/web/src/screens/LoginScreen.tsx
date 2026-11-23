@@ -14,8 +14,8 @@ import {
 
 import type { Account } from '@orava/core';
 
-import { ApiError, getAccount } from '../lib/api';
-import { signIn, signOut } from '../lib/auth';
+import { getAccount } from '../lib/api';
+import { signIn } from '../lib/auth';
 import { colors, radius } from '../theme';
 
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }) {
@@ -36,16 +36,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }
       await signIn(email, password);
       onLoggedIn(await getAccount());
     } catch (e) {
-      // Signed in to Supabase, but no Orava user is linked to that login (users.auth_user_id).
-      const noAccount = e instanceof ApiError && e.status === 401;
-      if (noAccount) await signOut();
-      setError(
-        noAccount
-          ? "This login isn't set up for Orava yet."
-          : e instanceof Error
-            ? e.message
-            : 'Something went wrong.',
-      );
+      // signIn and lib/api.ts both throw messages safe to show (e.g. a login with no Orava user).
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
       setBusy(false);
     }
   };

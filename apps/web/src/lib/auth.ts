@@ -26,11 +26,11 @@ function client() {
 export async function signIn(email: string, password: string): Promise<void> {
   const { error } = await client().auth.signInWithPassword({ email: email.trim(), password });
   if (!error) return;
-  if (isAuthError(error) && error.code === 'invalid_credentials') {
-    throw new Error('Wrong email or password.');
-  }
-  if (isAuthError(error) && error.status === 429) {
-    throw new Error('Too many sign-in attempts. Try again in a few minutes.');
+  if (isAuthError(error)) {
+    if (error.code === 'invalid_credentials') throw new Error('Wrong email or password.');
+    if (error.status === 429) {
+      throw new Error('Too many sign-in attempts. Try again in a few minutes.');
+    }
   }
   throw new Error('Cannot sign in right now. Check your connection and try again.');
 }
@@ -42,8 +42,7 @@ export async function signOut(): Promise<void> {
 
 /** The current access token (refreshed if needed), or undefined when signed out. */
 export async function accessToken(): Promise<string | undefined> {
-  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
-  return data.session?.access_token;
+  return (await supabase?.auth.getSession())?.data.session?.access_token;
 }
 
 /** Calls `handler` when the session ends (signed out here or in another tab, or refresh failed). */

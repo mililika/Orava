@@ -5,7 +5,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Account } from '@orava/core';
 
-import { getAccount, setUnauthorizedHandler } from './src/lib/api';
+import { getAccount } from './src/lib/api';
 import { accessToken, onSignedOut, signOut } from './src/lib/auth';
 import { MainScreen } from './src/screens/MainScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -17,9 +17,8 @@ export default function App() {
 
   useEffect(() => {
     // Signed out here, in another tab, or the session couldn't be refreshed: back to login.
+    // lib/api.ts signs out on any 401, so that lands here too.
     const unsubscribe = onSignedOut(() => setAccount(null));
-    // Our API refused the token (e.g. no Orava user is linked to it): end the session too.
-    setUnauthorizedHandler(() => void signOut());
     // After a reload, Supabase restores the session from localStorage; then load the account.
     (async () => {
       try {
@@ -28,28 +27,26 @@ export default function App() {
         setAccount(null); // e.g. the server is down: the login screen says so on the next try
       }
     })();
-    return () => {
-      unsubscribe();
-      setUnauthorizedHandler(undefined);
-    };
+    return unsubscribe;
   }, []);
+
+  const screen =
+    account === undefined ? (
+      <View style={s.loading}>
+        <ActivityIndicator color={colors.green} size="large" />
+      </View>
+    ) : account === null ? (
+      <LoginScreen onLoggedIn={setAccount} />
+    ) : (
+      <MainScreen account={account} onLogout={signOut} />
+    );
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView style={s.outside} edges={['top', 'bottom']}>
         {/* On a wide browser window, keep the app phone-sized in the middle. */}
-        <View style={s.phone}>
-          {account === undefined ? (
-            <View style={s.loading}>
-              <ActivityIndicator color={colors.green} size="large" />
-            </View>
-          ) : account ? (
-            <MainScreen account={account} onLogout={signOut} />
-          ) : (
-            <LoginScreen onLoggedIn={setAccount} />
-          )}
-        </View>
+        <View style={s.phone}>{screen}</View>
       </SafeAreaView>
     </SafeAreaProvider>
   );

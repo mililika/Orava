@@ -4,7 +4,7 @@
 import { AccountResponse, ApiErrorBody, type ErrorCode } from '@orava/contracts';
 import type { Account } from '@orava/core';
 
-import { accessToken } from './auth';
+import { accessToken, signOut } from './auth';
 
 /** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
 type Schema<T> = { parse(data: unknown): T };
@@ -22,13 +22,6 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
-}
-
-let onUnauthorized: (() => void) | undefined;
-
-/** Called on every 401 (the session ended or the user has no Orava account): back to login. */
-export function setUnauthorizedHandler(handler: (() => void) | undefined): void {
-  onUnauthorized = handler;
 }
 
 async function request<T>(
@@ -54,7 +47,9 @@ async function request<T>(
 
   if (!res.ok) {
     const parsed = ApiErrorBody.safeParse(await res.json().catch(() => null));
-    if (res.status === 401) onUnauthorized?.();
+    // The session ended or the login has no Orava account: end it here too. App's onSignedOut
+    // listener then shows the login screen.
+    if (res.status === 401) await signOut();
     throw parsed.success
       ? new ApiError(res.status, parsed.data.error.code, parsed.data.error.message)
       : new ApiError(res.status, 'internal', `Server error (${res.status}).`);

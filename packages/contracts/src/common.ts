@@ -6,6 +6,8 @@ import { z } from 'zod';
 export const ERROR_CODES = [
   'validation_failed',
   'unauthorized',
+  /** 401: a valid Supabase login with no Orava user linked to it (`users.auth_user_id`). */
+  'account_not_linked',
   'not_found',
   'rate_limited',
   'ai_limit',

@@ -11,9 +11,6 @@ import { UsersRepository } from '../db/users.repository.js';
 import { type AuthedRequest, IS_PUBLIC } from './decorators.js';
 import { TokenVerifier } from './token-verifier.js';
 
-/** The 401 message for a missing, invalid or expired token, or a user without an Orava account. */
-export const SIGN_IN_AGAIN = 'Please sign in again.';
-
 /**
  * Global: every route needs `Authorization: Bearer <Supabase access token>` unless it's marked
  * `@Public()`, so a new route is protected by default. Puts our user (linked through
@@ -40,8 +37,16 @@ export class AuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<Request>();
     const [scheme, token] = req.get('authorization')?.split(' ') ?? [];
     const authUserId = scheme === 'Bearer' && token ? await this.tokens.userIdOf(token) : undefined;
-    const user = authUserId ? await this.users.findByAuthUserId(authUserId) : undefined;
-    if (!user) throw new UnauthorizedException(SIGN_IN_AGAIN);
+    if (!authUserId) throw new UnauthorizedException('Please sign in again.');
+
+    const user = await this.users.findByAuthUserId(authUserId);
+    if (!user) {
+      // A real Supabase login that the owner hasn't linked to a row in `users` yet.
+      throw new UnauthorizedException({
+        code: 'account_not_linked',
+        message: "This login isn't set up for Orava yet.",
+      });
+    }
 
     (req as AuthedRequest).user = user;
     return true;

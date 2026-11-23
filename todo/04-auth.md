@@ -23,7 +23,7 @@ There's no "Continue with demo data" mode: you sign in as one of the users in th
   `iss = <SUPABASE_URL>/auth/v1`, `aud = authenticated` and `role = authenticated`. No request
   to Supabase per API call.
 - **Linking:** `users.auth_user_id` (unique, references `auth.users(id)`) = the token's `sub`.
-  A valid token whose user has no linked row gets 401 ("not set up for Orava").
+  A valid token whose user has no linked row gets 401 with code `account_not_linked` ("not set up for Orava").
 - **No CSRF check:** the token is sent in a header the page sets, never a cookie, so another site
   can't make the browser send it. CORS still allows only `WEB_ORIGIN`.
 - **Rate limits** on sign-in are Supabase Auth's (Authentication → Rate Limits).
