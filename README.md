@@ -40,12 +40,14 @@ Every command below runs from the repo root. Stop any of them with **Ctrl+C**.
 ### Run it locally (web app + API)
 
 1. Copy `apps/server/.env.example` to `apps/server/.env` and set `DATABASE_URL` to the Supabase
-   Postgres connection string (see [Database](#database)). Never commit `.env`.
+   Postgres connection string and `SUPABASE_URL` to the project URL (see [Database](#database)).
+   Copy `apps/web/.env.example` to `apps/web/.env` and set the Supabase URL and publishable key
+   (used only for sign-in). Never commit `.env`.
 2. Start the API: `npm run dev:server`. It listens on http://localhost:8080; check it with
    `curl localhost:8080/api/health` (→ `{"ok":true}`, or 503 if the database can't be reached). It refuses to start if a var in `.env`
    is missing or invalid, and names it.
 3. In a second terminal, start the web app: `npm run web` (http://localhost:8081). Sign in as
-   `demo` / `demo` (the public demo login). The web app calls the API at http://localhost:8080
+   the public `demo_solid@demo.de` login (its password is set by the owner in Supabase Auth). The web app calls the API at http://localhost:8080
    unless `EXPO_PUBLIC_API_URL` says otherwise.
 
 `npm run docker:server` builds the API's Docker image and runs it with the same `.env` on port 8080.
@@ -55,9 +57,10 @@ Saving a file reloads the app automatically, including files in `packages/`.
 
 ## Database
 
-The data lives in a Supabase project, used only as a hosted Postgres: no Supabase Auth, Data API
-or client SDK. Only the API connects to it (Drizzle ORM + postgres.js, `apps/server/src/db/`);
-the web app never gets a connection string or key.
+The data lives in a Supabase project's Postgres, and login is Supabase Auth. Only the API connects
+to the database (Drizzle ORM + postgres.js, `apps/server/src/db/`); the web app never gets a
+connection string or secret key. It uses the Supabase client only to sign in
+(`apps/web/src/lib/auth.ts`) and sends the access token to our API, which verifies it.
 
 - **Connection string:** Supabase dashboard → **Connect → Session pooler**, into `DATABASE_URL` in
   `apps/server/.env`. Local development uses the same database, so writes are real.
@@ -102,7 +105,7 @@ apps/
       theme.ts                  S-mobiili colors, euro formatting
   server/                       the NestJS API, @orava/server (everything under /api)
     src/
-      main.ts                   bootstrap: prefix, helmet, cookies, CORS, body limit
+      main.ts                   bootstrap: prefix, helmet, CORS, body limit
       config/                   env schema (zod) and the typed AppConfig
       common/                   ZodValidationPipe, the ApiErrorBody exception filter
       health/                   GET /api/health (checks the database)

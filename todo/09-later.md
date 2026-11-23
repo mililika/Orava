@@ -4,7 +4,7 @@ Ideas that came up while planning but aren't needed for a working production web
 independent. Move one into its own numbered file when it's picked up.
 
 - **Public sign-up.** `POST /api/auth/register` with username and password; a new user starts with
-  a copy of `demo`'s transactions (labelled as sample data in the UI) since there's no bank connection.
+  a copy of `demo_solid`'s transactions (labelled as sample data in the UI) since there's no bank connection.
   Needs CAPTCHA or stricter throttling, and a way to delete your own account.
 - **Password change and account deletion** from the app.
 - **PWA.** Web app manifest, icons and a service worker so the site can be added to a phone's home
@@ -27,7 +27,7 @@ independent. Move one into its own numbered file when it's picked up.
 - **Persist AI cache and usage.** If in-memory overview caching and limits aren't enough (more
   instances, cost reporting), add `ai_overviews` / `ai_requests` tables. Needs the owner's OK
   (README rule on keeping the database small).
-- **Read-only or self-resetting `demo`.** The public `demo` login is shared by everyone. Either make
+- **Read-only or self-resetting `demo_solid`.** The public `demo_solid` login is shared by everyone. Either make
   it read-only (no add/delete), or reset its `user` transactions nightly (a Cloud Scheduler job
   calling a protected endpoint that runs the reset SQL from `08-deployment.md`).
 - **Separate development database.** A second Supabase project for local development, so testing

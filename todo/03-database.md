@@ -1,7 +1,7 @@
 # 03 · Database access
 
-**The database itself is done.** It's a Supabase project, used purely as a hosted Postgres (no
-Supabase Auth, no Data API, no Supabase client SDK). The owner created the tables and loaded the
+**The database itself is done.** It's a Supabase project, used as a hosted Postgres (login
+is Supabase Auth, set up in section 04; no Data API). The owner created the tables and loaded the
 data once from SQL files in the Supabase SQL Editor. Those files are **not in the repo**; the
 schema they created is below and is the reference for this plan.
 
@@ -16,16 +16,17 @@ repositories.
 
 ## What's in the database
 
-The schema, exactly as created in Supabase:
+The schema as it is in Supabase (section 04 added `auth_user_id` and dropped the first auth
+version's `password_hash` column and `sessions` table):
 
 ```sql
 create table users (
   id                  uuid primary key default gen_random_uuid(),
   -- Stored lowercased and trimmed, so "Demo " and "demo" are the same login.
   username            text not null unique check (username <> '' and username = lower(btrim(username))),
-  -- bcrypt ("$2a$12$…"): the random salt and the cost factor are part of the hash itself, so
-  -- there's no separate salt column. The plain-text password is never stored.
-  password_hash       text not null,
+  -- The Supabase Auth user who signs in as this user (the access token's `sub`). Added in
+  -- section 04; passwords live in Supabase Auth, never in our tables.
+  auth_user_id        uuid unique references auth.users (id) on delete set null,
   -- Balance before the user's first transaction. Current balance = this + sum of the amounts of
   -- transactions that aren't deleted.
   opening_balance_eur numeric(14,2) not null default 0,
@@ -33,17 +34,6 @@ create table users (
   ai_hourly_limit     integer check (ai_hourly_limit >= 0),
   created_at          timestamptz not null default now()
 );
-
-create table sessions (
-  -- sha256 of the session token (hex). The token itself only lives in the user's cookie.
-  id           text primary key,
-  user_id      uuid not null references users (id) on delete cascade,
-  created_at   timestamptz not null default now(),
-  expires_at   timestamptz not null,
-  last_seen_at timestamptz not null default now()
-);
-
-create index sessions_user_id_idx on sessions (user_id);
 
 create table transactions (
   id          bigint generated always as identity primary key,
@@ -68,14 +58,13 @@ create index transactions_user_date_idx
 -- with no policies (the API sees no rows), and those roles' privileges revoked. Neither affects the
 -- server, which connects as the table owner. On plain Postgres (no such roles) only RLS is enabled.
 alter table users enable row level security;
-alter table sessions enable row level security;
 alter table transactions enable row level security;
 
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'anon')
      and exists (select 1 from pg_roles where rolname = 'authenticated') then
-    revoke all on table users, sessions, transactions from anon, authenticated;
+    revoke all on table users, transactions from anon, authenticated;
     revoke all on sequence transactions_id_seq from anon, authenticated;
   end if;
 end $$;
@@ -83,29 +72,29 @@ end $$;
 
 - **Balance** = `users.opening_balance_eur` + sum of `amount_eur` of the user's transactions where
   `deleted_at is null`. It's never stored.
-- **Logins:** for these 7 demo users the password is the username (`demo_good` / `demo_good`, …);
-  only bcrypt hashes are stored. `demo` is the public login. Any other user is created by the owner
-  in Supabase with their own password, never written in the repo or this plan.
-  Profiles (as scored at the hackathon):
+- **Logins** are Supabase Auth users (email + password, set by the owner in the dashboard), linked
+  to `users` by `auth_user_id`; see section 04. Each of the 5 users has one (email
+  `<username>@demo.de`); `demo_solid` is the public login.
+  Profiles (as scored at the hackathon; renamed in section 04 from `demo_bad`, `demo_headsup`,
+  `demo_young`, `demo` and `demo_good`; `demo_idle` and `demo_spending` were deleted there):
 
   | User            | Profile                                                                        |
   | --------------- | ------------------------------------------------------------------------------ |
-  | `demo`          | Steady (76): fine, but only 2% of income left over                             |
-  | `demo_good`     | Doing great (90): 39% of income left over, invests, 10.8-month buffer          |
-  | `demo_headsup`  | Heads up (54): spends more than comes in, rent and bills take 47% of income    |
-  | `demo_bad`      | Needs attention (18): overspends, balance below zero in 2 of the last 3 months |
-  | `demo_young`    | Steady (61): 24 years old, everyday extras take 40% of income                  |
-  | `demo_idle`     | Doing great (91) with €13,749 idle money and no investing                      |
-  | `demo_spending` | Spending account (80): salary moves on to another bank, €7,873 idle            |
+  | `demo_critical` | Needs attention (18): overspends, balance below zero in 2 of the last 3 months |
+  | `demo_tight`    | Heads up (54): spends more than comes in, rent and bills take 47% of income    |
+  | `demo_steady`   | Steady (61): 24 years old, everyday extras take 40% of income                  |
+  | `demo_solid`    | Steady (76): fine, but only 2% of income left over                             |
+  | `demo_thriving` | Doing great (90): 39% of income left over, invests, 10.8-month buffer          |
 
-- **Changing a password** (owner, in the Supabase SQL Editor):
-  `update users set password_hash = extensions.crypt('new password', extensions.gen_salt('bf', 12)) where username = '…';`
-- With the original data, `demo` has 659 transactions and a balance of **€12,534.33**.
+- **Changing a password:** Supabase dashboard → Authentication → Users → the user → reset or set
+  the password.
+- With the original data, `demo_solid` has 659 transactions and a balance of **€12,534.33**.
 
 ## Decisions
 
-- **Only the server connects to Postgres.** The web app never gets a connection string, a
-  Supabase key or a database client library. Don't install `@supabase/supabase-js` anywhere.
+- **Only the server connects to Postgres.** The web app never gets a connection string, a secret
+  key or a database client. Its only Supabase use is sign-in (Supabase Auth, publishable key,
+  `apps/web/src/lib/auth.ts`; section 04); it never queries tables through Supabase.
 - **Connection:** the Supabase connection string from the dashboard (**Connect → Session pooler**,
   user `postgres.<project-ref>`), in `DATABASE_URL`, with TLS. The session pooler works from
   anywhere (IPv4) and behaves like a normal Postgres connection. If the transaction pooler (port 6543) is ever used instead, prepared statements must be turned off in the driver (e.g.
@@ -135,7 +124,7 @@ end $$;
   - `UsersRepository`: `findByUsername` (lowercases the input), `findById`.
   - `TransactionsRepository`: `list(userId)` returning `@orava/core`'s `Transaction[]` (newest
     first, without deleted rows, `id` as a string) and `balanceOf(userId)`.
-  - Section 04 adds a `SessionsRepository`; section 05 adds the write side for transactions.
+  - Section 04 adds `findByAuthUserId`; section 05 adds the write side for transactions.
   - Repositories return domain types, never Drizzle row types; controllers map them to
     `@orava/contracts` DTOs.
 - [x] Root README: a short "Database" section: it's Supabase Postgres, where the connection string
@@ -167,7 +156,7 @@ end $$;
   Postgres's (checked with `drizzle-kit pull`); the foreign keys keep Drizzle's default names, which
   only matter to drizzle-kit, never used here. RLS isn't mirrored in `schema.ts` for the same reason.
 - **Drizzle stays inside `src/db/`:** `DbModule` exports the repositories and `DbHealth` (the
-  `select 1` for health), not the `DB` token. Section 04's `SessionsRepository` goes in `src/db/` too.
+  `select 1` for health), not the `DB` token. (Section 04 first added a `SessionsRepository` here; it went with the switch to Supabase Auth.)
 - **Username normalisation** is in `UsersRepository.findByUsername` for now; section 04 should also
   trim and lowercase in the login zod schema.
 - **`drizzle-kit` isn't a dependency.** Installing it in the workspace failed (tsx's nested esbuild

@@ -45,7 +45,7 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 - [ ] Repository: `add`, `softDelete` (only where `user_id` matches).
 - [ ] `AccountController` and `TransactionsController`: the three routes, validated with the
       contracts schemas, typed with the contracts response types, user from `@CurrentUser()`
-      (the global `SessionGuard` already requires a session).
+      (the global `AuthGuard` already requires a signed-in user).
 - [ ] Limit per user: at most 500 `user` transactions (keeps one account from filling the DB);
       return 409 with a readable message beyond that.
 
@@ -65,12 +65,12 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 
 ## Acceptance criteria
 
-- Add an expense as `demo`, reload: it's still there; balance and Money health reflect it.
+- Add an expense as `demo_solid`, reload: it's still there; balance and Money health reflect it.
 - Delete a seeded transaction, reload: still gone.
 - With the server stopped, adding a transaction shows an error toast and the list goes back to how
   it was.
 - User A can't delete user B's transaction (404).
-- Money health for `demo` matches what it showed with the same data before this section.
+- Money health for `demo_solid` matches what it showed with the same data before this section.
 
 ## Notes
 

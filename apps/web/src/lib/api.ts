@@ -1,17 +1,10 @@
 // The only place in the web app that talks to our server. Every request and response shape comes
-// from @orava/contracts. The session is an httpOnly cookie the browser sends by itself
-// (`credentials: 'include'`); this code never sees it.
+// from @orava/contracts. Each request carries the Supabase Auth access token (lib/auth.ts).
 
-import {
-  AccountResponse,
-  ApiErrorBody,
-  type ErrorCode,
-  type LoginRequest,
-  LoginResponse,
-  MeResponse,
-  type UserDto,
-} from '@orava/contracts';
+import { AccountResponse, ApiErrorBody, type ErrorCode } from '@orava/contracts';
 import type { Account } from '@orava/core';
+
+import { accessToken } from './auth';
 
 /** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
 type Schema<T> = { parse(data: unknown): T };
@@ -33,7 +26,7 @@ export class ApiError extends Error {
 
 let onUnauthorized: (() => void) | undefined;
 
-/** Called on every 401, e.g. when the session expired: App.tsx goes back to the login screen. */
+/** Called on every 401 (the session ended or the user has no Orava account): back to login. */
 export function setUnauthorizedHandler(handler: (() => void) | undefined): void {
   onUnauthorized = handler;
 }
@@ -41,15 +34,18 @@ export function setUnauthorizedHandler(handler: (() => void) | undefined): void 
 async function request<T>(
   method: 'GET' | 'POST' | 'DELETE',
   path: string,
-  schema: Schema<T> | null,
+  schema: Schema<T>,
   body?: unknown,
 ): Promise<T> {
+  const token = await accessToken();
   let res: Response;
   try {
     res = await fetch(`${BASE}/api${path}`, {
       method,
-      credentials: 'include',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
@@ -64,33 +60,12 @@ async function request<T>(
       : new ApiError(res.status, 'internal', `Server error (${res.status}).`);
   }
 
-  if (!schema) return undefined as T;
   const json: unknown = await res.json();
   // In development, a server/client mismatch fails loudly here instead of somewhere in the UI.
   return __DEV__ ? schema.parse(json) : (json as T);
 }
 
-/** Starts a session (sets the cookie). Throws ApiError: 401 wrong login, 429 too many tries. */
-export async function login(username: string, password: string): Promise<UserDto> {
-  const body: LoginRequest = { username, password };
-  return (await request('POST', '/auth/login', LoginResponse, body)).user;
-}
-
-export async function logout(): Promise<void> {
-  await request('POST', '/auth/logout', null);
-}
-
-/** The signed-in user, or null when there's no valid session (e.g. after a reload). */
-export async function me(): Promise<UserDto | null> {
-  try {
-    return (await request('GET', '/me', MeResponse)).user;
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 401) return null;
-    throw e;
-  }
-}
-
-/** The signed-in user's balance and transactions, newest first. */
+/** The signed-in user's balance and transactions, newest first. 401 when signed out. */
 export function getAccount(): Promise<Account> {
   return request('GET', '/account', AccountResponse);
 }

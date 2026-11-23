@@ -22,8 +22,11 @@ export const users = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     /** Stored lowercased and trimmed. */
     username: text('username').notNull().unique('users_username_key'),
-    /** bcrypt; the salt and cost are part of the hash. */
-    passwordHash: text('password_hash').notNull(),
+    /**
+     * The Supabase Auth user (`auth.users.id`, the access token's `sub`) who signs in as this
+     * user. Null until the owner links one. Passwords live in Supabase Auth, never here.
+     */
+    authUserId: uuid('auth_user_id').unique('users_auth_user_id_key'),
     /** Balance before the first transaction, in euros. */
     openingBalanceEur: numeric('opening_balance_eur', { precision: 14, scale: 2, mode: 'number' })
       .notNull()
@@ -39,21 +42,6 @@ export const users = pgTable(
     ),
     check('users_ai_hourly_limit_check', sql`${t.aiHourlyLimit} >= 0`),
   ],
-);
-
-export const sessions = pgTable(
-  'sessions',
-  {
-    /** sha256 of the session token (hex). The token itself only lives in the cookie. */
-    id: text('id').primaryKey(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index('sessions_user_id_idx').on(t.userId)],
 );
 
 export const transactions = pgTable(

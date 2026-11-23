@@ -14,25 +14,26 @@ without the owner saying so for that step.
 - **Region:** Cloud Run in `europe-north1` (Finland), close to the Supabase project's region.
 - **Database:** the existing Supabase project (section 03). Nothing to create or migrate here.
 - **Database access:** only the Cloud Run service gets `DATABASE_URL` (Supabase session pooler
-  string). Never put it or any Supabase key in Vercel's env vars. In the Supabase dashboard,
+  string). Vercel gets only the public `EXPO_PUBLIC_SUPABASE_URL` and the publishable key, for sign-in;
+  never the database URL or a secret key. In the Supabase dashboard,
   consider turning the Data API off entirely, since nothing uses it (the schema already locks it
   out). Supabase network restrictions (IP allowlisting) are optional: Cloud Run has no fixed
   outbound IP without a NAT setup.
 - **Secrets** (`DATABASE_URL`, `GEMINI_API_KEY`) live in Google Secret Manager and are mounted into
   Cloud Run as env vars. Never in the image, the repo or GitHub Actions logs.
 - **One origin for the browser:** `vercel.json` rewrites `/api/:path*` to the Cloud Run URL. The web
-  build uses `EXPO_PUBLIC_API_URL=""` (same origin), so cookies are first-party.
+  build uses `EXPO_PUBLIC_API_URL=""` (same origin), so there's no CORS in production.
   **Verify SSE streaming works through the rewrite** (Vercel's external rewrites have timeouts and
   may buffer). If it doesn't, the fallback is a custom domain with `app.<domain>` on Vercel and
-  `api.<domain>` on Cloud Run (same site, so `SameSite=Lax` cookies still work), and the client
-  calls `api.<domain>` directly.
+  `api.<domain>` on Cloud Run, the client calls `api.<domain>` directly, and `WEB_ORIGIN` allows
+  the app's origin (CORS).
 - **CI/CD:** GitHub Actions authenticates to Google Cloud with **Workload Identity Federation**
   (no long-lived JSON key). On push to `main`: build image → push to Artifact Registry → deploy to
   Cloud Run. Vercel deploys the web app itself from its GitHub integration.
-- **The public `demo` login is shared.** Everyone who logs in as `demo` sees and changes the same
+- **The public `demo_solid` login is shared.** Everyone who logs in as `demo_solid` sees and changes the same
   data, and shares one AI hourly limit (which also caps what visitors can spend on Gemini).
   To reset it, run in the Supabase SQL Editor:
-  `delete from transactions where source = 'user' and user_id = (select id from users where username = 'demo'); update transactions set deleted_at = null where user_id = (select id from users where username = 'demo');` See `09-later.md` for a read-only or
+  `delete from transactions where source = 'user' and user_id = (select id from users where username = 'demo_solid'); update transactions set deleted_at = null where user_id = (select id from users where username = 'demo_solid');` See `09-later.md` for a read-only or
   self-resetting demo.
 - **Cost guards:** Cloud Run min instances 0, max instances 2; a Google Cloud budget alert; the
   `AI_DAILY_LIMIT` from section 06; a spending cap or quota on the Gemini key.
@@ -82,9 +83,9 @@ without the owner saying so for that step.
 - [ ] Preview deployments: decide whether PR previews talk to the production API (simple) or a
       separate staging service (safer). Default: production API, since previews only read and
       write the data of whoever is logged in.
-- [ ] Set `TRUST_PROXY_HOPS=2` on Cloud Run (Vercel and Google's front end each add to
-      `X-Forwarded-For`) and check that a login's `req.ip` is the browser's address, since login
-      throttling keys on it.
+- [ ] Set `SUPABASE_URL` on Cloud Run (plain env var, not a secret), and
+      `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in Vercel.
+- [ ] Supabase Auth → URL Configuration: set the Site URL to the production Vercel URL.
 - [ ] Set `WEB_ORIGIN` on Cloud Run to the production Vercel URL (plus the custom domain if any).
 
 ### GitHub Actions deploy (`.github/workflows/deploy.yml`)
@@ -103,10 +104,10 @@ without the owner saying so for that step.
 
 ## Acceptance criteria
 
-- The Vercel URL opens the app, and logging in as `demo` works.
+- The Vercel URL opens the app, and logging in as `demo_solid` works.
 - Adding a transaction persists across reloads.
 - The Ask Orava chat streams in production (word by word, not all at once at the end).
-- The session cookie is `HttpOnly`, `Secure`, first-party (check in browser dev tools).
+- API requests carry `Authorization: Bearer`, and `/api/me` without it returns 401.
 - A push to `main` deploys both web and API without manual steps.
 - The budget alert exists, and `docs/deploy.md` describes how to recreate everything.
 

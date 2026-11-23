@@ -1,4 +1,4 @@
-// Username + password sign-in against our server (lib/api.ts), then loads the account.
+// Email + password sign-in with Supabase Auth (lib/auth.ts), then loads the account from our API.
 
 import { useState } from 'react';
 import {
@@ -14,28 +14,38 @@ import {
 
 import type { Account } from '@orava/core';
 
-import { getAccount, login } from '../lib/api';
+import { ApiError, getAccount } from '../lib/api';
+import { signIn, signOut } from '../lib/auth';
 import { colors, radius } from '../theme';
 
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     if (busy) return;
-    if (!username.trim() || !password) {
-      setError('Enter your username and password.');
+    if (!email.trim() || !password) {
+      setError('Enter your email and password.');
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await login(username, password);
+      await signIn(email, password);
       onLoggedIn(await getAccount());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      // Signed in to Supabase, but no Orava user is linked to that login (users.auth_user_id).
+      const noAccount = e instanceof ApiError && e.status === 401;
+      if (noAccount) await signOut();
+      setError(
+        noAccount
+          ? "This login isn't set up for Orava yet."
+          : e instanceof Error
+            ? e.message
+            : 'Something went wrong.',
+      );
       setBusy(false);
     }
   };
@@ -46,14 +56,16 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (a: Account) => void }
         <Text style={s.title}>Orava</Text>
         <Text style={s.sub}>Sign in to see your money coach</Text>
 
-        <Text style={s.label}>Username</Text>
+        <Text style={s.label}>Email</Text>
         <TextInput
           style={s.input}
-          value={username}
-          onChangeText={setUsername}
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
           autoCorrect={false}
-          textContentType="username"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          autoComplete="email"
           returnKeyType="next"
           editable={!busy}
         />

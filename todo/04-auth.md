@@ -1,128 +1,175 @@
-# 04 · Auth
+# 04 · Auth (Supabase Auth)
 
-**Goal:** real login with hashed passwords and server sessions, and the web app's login screen
-wired to the server. The "Continue with demo data" mode is removed: you sign in as one of
-the users in the database (section 03; `demo` is the public login). After this section, the client never sees a password again after submitting it, and no
-Supabase code is left.
+**Goal:** real login through **Supabase Auth**, and our API accepting only signed-in users. We
+don't handle passwords, password hashes, sessions or login throttling ourselves: Supabase Auth
+does. Our server only checks the access token on each request and maps it to our `users` row.
+There's no "Continue with demo data" mode: you sign in as one of the users in the database
+(`demo_solid` is the public login).
 
 **Depends on:** 02, 03.
 
 ## Decisions
 
-- **Passwords:** bcrypt. The stored hashes (`$2a$12$…`) were made with Postgres's `pgcrypto`
-  (`crypt(pw, gen_salt('bf', 12))`); each one contains its own random salt and the cost factor, so
-  verifying needs only the hash. Use `bcryptjs` (pure JS, no native build in Docker) or `bcrypt`,
-  and check it verifies a `$2a$` hash from the database. The server only **verifies**
-  passwords;
-  it never creates users or changes passwords in this plan (the owner does that in SQL).
-- **Sessions:** on login, generate 32 random bytes (`crypto.randomBytes`), send them base64url in
-  a cookie, store only `sha256(token)` in `sessions.id`. Lifetime 30 days, sliding: extend
-  `expires_at` when `last_seen_at` is more than a day old. Logout deletes the row.
-- **Cookie:** name `orava_session`, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production.
-  In production the browser talks to the API through the Vercel `/api` rewrite (same origin), so
-  `SameSite=Lax` is enough. Locally, `localhost:8081` and `localhost:8080` count as the same site,
-  so cookies work with `credentials: 'include'` too.
-- **CSRF:** `SameSite=Lax` plus an `Origin` check: every non-GET request must have an `Origin`
-  header in `WEB_ORIGIN` (or the server's own origin). Reject otherwise with 403.
-- **Login throttling:** in-memory, per IP and per username (e.g. 10 failures in 15 minutes →
-  429 with `Retry-After`). Good enough while Cloud Run runs 1–2 instances; note it in code.
-- **Errors never say which part was wrong:** "Wrong username or password." for both cases, and
-  verify against a dummy hash when the user doesn't exist, so response time doesn't reveal it.
+- **Supabase Auth checks passwords and keeps sessions.** The browser signs in with
+  `@supabase/supabase-js` (`signInWithPassword`, email + password) using the project URL and the
+  **publishable key**. Both are public by design. The Supabase client is used **only for auth**:
+  the publishable key can't read our tables (RLS on, `anon`/`authenticated` privileges revoked;
+  see section 03), and all data still goes through our API.
+- **Email, not username.** Supabase Auth signs in with an email (or phone). Each demo user gets an
+  email in Supabase Auth; our `users.username` stays the display name.
+- **Our API gets the access token as `Authorization: Bearer …`** on every request. The server
+  verifies it locally with `jose` against the project's public signing keys (JWKS at
+  `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`; the project signs with ES256), checking
+  `iss = <SUPABASE_URL>/auth/v1`, `aud = authenticated` and `role = authenticated`. No request
+  to Supabase per API call.
+- **Linking:** `users.auth_user_id` (unique, references `auth.users(id)`) = the token's `sub`.
+  A valid token whose user has no linked row gets 401 ("not set up for Orava").
+- **No CSRF check:** the token is sent in a header the page sets, never a cookie, so another site
+  can't make the browser send it. CORS still allows only `WEB_ORIGIN`.
+- **Rate limits** on sign-in are Supabase Auth's (Authentication → Rate Limits).
+- **No public sign-up:** "Allow new users to sign up" is off. Users are created by the owner in
+  the Supabase dashboard.
 
 ## API
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/api/auth/login` | `{ username, password }` | 200 `{ user }` + cookie · 401 · 429 |
-| POST | `/api/auth/logout` | none | 204, cookie cleared |
 | GET | `/api/me` | none | 200 `{ user }` · 401 |
 
-`user` is `UserDto = { id, username }`. Nothing else about the user leaves the server.
+`user` is `UserDto = { id, username }`. Signing in and out happens in the browser with Supabase
+Auth; there are no login or logout routes on our server.
+
+## Owner steps (in Supabase)
+
+Passwords are set by the owner in the dashboard; never in the repo, this plan or the chat.
+
+1. **Authentication → Sign In / Providers → Email:** keep Email enabled. Turn **off** "Allow new
+   users to sign up". Check the minimum password length there: the old demo passwords (`demo`, …)
+   are too short, so the demo logins get new passwords.
+2. **Authentication → Users → Add user → Create new user**, with **Auto Confirm User** ticked, for
+   the five demo logins (done 2026-11-23): `demo_critical@demo.de`, `demo_tight@demo.de`,
+   `demo_steady@demo.de`, `demo_solid@demo.de`, `demo_thriving@demo.de`. Passwords: your choice;
+   `demo_solid` is the public login, so put its password in the root README yourself.
+3. **SQL Editor:** rename five users to the five levels, link them to those logins by email, and
+   check. One transaction, so it either all happens or nothing does:
+
+   ```sql
+   begin;
+
+   alter table users
+     add column auth_user_id uuid unique references auth.users (id) on delete set null;
+
+   -- Five levels, worst to best (scores as at the hackathon).
+   update users u
+      set username = v.new_name
+     from (values
+       ('demo_bad',     'demo_critical'),  -- Needs attention (18)
+       ('demo_headsup', 'demo_tight'),     -- Heads up (54)
+       ('demo_young',   'demo_steady'),    -- Steady (61)
+       ('demo',         'demo_solid'),     -- Steady (76), the public login
+       ('demo_good',    'demo_thriving')   -- Doing great (90)
+     ) as v (old_name, new_name)
+    where u.username = v.old_name;
+
+   update users u
+      set auth_user_id = a.id
+     from auth.users a
+    where lower(a.email) = u.username || '@demo.de';
+
+   select username, auth_user_id from users order by username;
+
+   commit;
+   ```
+
+   The five renamed users should show the UIDs from Authentication → Users (done 2026-11-23).
+   `demo_idle` and `demo_spending` are left without a login.
+3b. **Remove the two users without a login** (owner's call, 2026-11-23), with their transactions
+   (`on delete cascade`: 731 + 194 rows). Permanent:
+
+   ```sql
+   begin;
+
+   delete from users where username in ('demo_idle', 'demo_spending');
+
+   -- Expect 5 users and 2406 transactions.
+   select (select count(*) from users) as users, (select count(*) from transactions) as transactions;
+
+   commit;
+   ```
+4. Put `SUPABASE_URL` in `apps/server/.env`, and `EXPO_PUBLIC_SUPABASE_URL` +
+   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `apps/web/.env` (Project Settings → API Keys; the
+   publishable key, never a secret key). Remove the old `EXPO_PUBLIC_SUPABASE_ANON_KEY` line.
+5. **After login works**, drop what the old self-made auth needed:
+
+   ```sql
+   drop table sessions;
+   alter table users drop column password_hash;
+   ```
 
 ## Tasks
 
-### Contracts (first)
+### Contracts
 
-- [x] `packages/contracts/src/auth.ts`: `LoginRequest` (username 1–64 chars, trimmed; password
-      1–256), `UserDto`, `LoginResponse` / `MeResponse` (`{ user: UserDto }`).
+- [x] `packages/contracts/src/auth.ts`: `UserDto`, `MeResponse` (`{ user: UserDto }`).
 
 ### Server (`AuthModule`)
 
-- [x] `PasswordService.verify(password, hash)`. Also keep one fixed dummy bcrypt hash (cost 12) to
-      verify against when the username doesn't exist (see "Errors" above).
-- [x] `SessionsRepository` on the `sessions` table (section 03's patterns).
-- [x] `SessionsService`: `create(userId)`, `get(token)` (checks expiry, slides it), `delete(token)`.
-- [x] `SessionGuard`, registered **globally** (`APP_GUARD`): reads the `orava_session` cookie,
-      loads the session and attaches the user to the request, or throws 401. Routes that don't need
-      a session opt out with a `@Public()` decorator (`/api/health`, login). A `@CurrentUser()`
-      param decorator gives handlers the user. Secure by default: a new route without a decorator
-      requires login.
-- [x] `OriginGuard` (global, after the session guard): non-GET requests must carry an allowed
-      `Origin` header, else 403.
-- [x] `AuthController` with the four routes, bodies validated with the contracts schemas through
-      the `ZodValidationPipe`, return types from `@orava/contracts`. Set and clear the cookie with
-      Express's `res.cookie` (use `@Res({ passthrough: true })` so Nest still sends the return value).
-- [x] Throttling with `@nestjs/throttler`: login, per IP and per username. Its default in-memory storage is fine at 1–2 instances; note that in
-      code. Behind Vercel and Cloud Run, the client IP comes from `X-Forwarded-For`, so set Express's
-      `trust proxy` accordingly and check what the throttler uses as the key.
+- [x] `TokenVerifier`: `jose` `createRemoteJWKSet` + `jwtVerify` with issuer, audience,
+      algorithms; returns the token's `sub` or nothing.
+- [x] `AuthGuard`, registered **globally** (`APP_GUARD`): reads `Authorization: Bearer`, verifies
+      it, loads the user by `auth_user_id` and attaches it to the request, or throws 401. Routes
+      that don't need it opt out with `@Public()` (`/api/health`). `@CurrentUser()` gives handlers
+      the user. Secure by default.
+- [x] `UsersRepository.findByAuthUserId`; `schema.ts` has `auth_user_id`, no `password_hash`, no
+      `sessions` table.
+- [x] `GET /api/me`. `SUPABASE_URL` in the env schema and `.env.example`.
 
 ### Web app
 
-- [x] `apps/web/src/lib/api.ts`: replace the Supabase RPC code with a small typed client for our
-      API. Base URL from `EXPO_PUBLIC_API_URL` (default `http://localhost:8080` in dev; empty string
-      in prod, meaning same origin), `credentials: 'include'` on every request. Request and response
-      types come from `@orava/contracts`. Errors are parsed with `ApiErrorBody` into a typed
-      `ApiError` (status, code, readable message). In development, also parse successful responses
-      with the response schema, so a server/client mismatch shows up immediately.
-      This file is the **only** place in the web app that does network requests to our server.
-- [x] `LoginScreen`: "Sign in" calls `/api/auth/login`. **Remove the "Continue with demo data"
-      button** and its code path. Until section 05 exists, keep loading the generated `demoAccount()` data in the
-      client after a successful login, with a TODO.
-- [x] `App.tsx`: on start, call `/api/me` to restore a session after a page reload; show a
-      loading state meanwhile. "Sign out" calls `/api/auth/logout`.
-- [x] Any 401 from the API afterwards returns to the login screen.
-- [x] Remove `EXPO_PUBLIC_SUPABASE_*` from code and `.env.example`; add `EXPO_PUBLIC_API_URL`.
+- [x] `src/lib/auth.ts`: the only place that uses the Supabase client: `signIn`, `signOut`,
+      `accessToken`, `onSignedOut`. Session kept by supabase-js (localStorage), refreshed
+      automatically.
+- [x] `src/lib/api.ts`: sends the access token as `Authorization: Bearer` on every request; any
+      401 signs out and returns to the login screen. Still the only place that calls our server.
+- [x] `LoginScreen`: email + password; readable errors (wrong login, rate limited, not set up for
+      Orava).
+- [x] `App.tsx`: restores the session after a reload (supabase-js keeps it), then loads the
+      account; "Sign out" ends the Supabase session.
+- [x] `.env.example`: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+      `EXPO_PUBLIC_API_URL`.
 
 ## Acceptance criteria
 
-- Log in as `demo` / `demo`, reload the page: still logged in. Sign out, reload: login screen.
-- `select * from sessions` shows hashes, never the cookie value. Login works for `demo` / `demo` and
-  `demo_bad` / `demo_bad` against their existing `$2a$12$…` hashes.
-- Wrong password and unknown username give the same message and similar response times.
-- 11 bad logins in a row → 429.
-- A POST to `/api/auth/logout` with `Origin: https://evil.example` → 403.
-- `grep -ri supabase apps packages` finds nothing, and the login screen has no demo button.
-- A new controller added without `@Public()` returns 401 without a cookie (secure by default).
+- Sign in as `demo_solid@demo.de` (with the password you set), reload: still signed in. Sign out,
+  reload: login screen.
+- Wrong password → "Wrong email or password."
+- `curl /api/me` without a token, or with a made-up one → 401.
+- A Supabase user without a linked `users` row → 401, and the login screen says it isn't set up.
+- A new controller added without `@Public()` returns 401 without a token (secure by default).
+- No password, password hash or session code is left in `apps/server`, and the web app uses the
+  Supabase client only in `src/lib/auth.ts`.
 
 ## Notes
 
 <!-- Anything that turned out different from this plan. -->
 
-- **`GET /api/account` pulled forward from section 05.** `demoAccount()` was already deleted in
-  section 01, so after login there was nothing to show. The read side only needed the existing
-  `TransactionsRepository`, so `AccountResponse` (contracts, checked equal to core's `Account`)
-  and `AccountController` (`src/transactions/`) are in this section. Section 05 adds the writes.
-- **Login throttling is our own `LoginAttempts`, not `@nestjs/throttler`.** The throttler's guard
-  counts every request before the handler runs, so it can't count only failures; counting every
-  login per username would let ten sign-ins by anyone lock out the shared `demo` login. Limit: 10
-  failures per IP and per username in any 15 minutes, `Retry-After` on the 429; a good login clears
-  that username's count. In memory, noted in code.
-- **`TRUST_PROXY_HOPS`** (env, default 0) sets Express's `trust proxy`, so `req.ip` is the browser's
-  address. Behind Vercel → Cloud Run it should be 2; section 08 sets it and checks `req.ip`.
-- **No dummy hash in the repo:** `PasswordService` hashes random bytes (cost 12) at startup and
-  checks unknown usernames against that. Wrong password and unknown user both take ~0.37 s.
-- **`OriginGuard` runs before `SessionGuard`**, not after, so a cross-site request gets 403 without
-  learning whether its cookie is valid. A missing `Origin` is refused too (curl needs `-H Origin:`).
-- **Logout is `@Public()`:** signing out without a valid session is a harmless 204.
-- **Sliding sessions also refresh the cookie:** when `SessionGuard` extends a session (at most once a
-  day), it sets the cookie again, so its `Max-Age` slides with the row's `expires_at`. Expired rows
-  of a user are deleted on their next login.
-- **API responses are `Cache-Control: no-store` and ETags are off.** Express answered `/api/me` and
-  `/api/account` with 304s before; per-user data shouldn't be cached anywhere.
-- Server-side mentions of Supabase (`db.module.ts`, `schema.ts`, `.env.example`) stay: they describe
-  where the Postgres is hosted. No Supabase code or keys are left in `apps/web`.
-- **Checked:** login as `demo` (and `Demo `) and `demo_bad` against their `$2a$12$` hashes; `/api/me`,
-  `/api/account` (659 transactions, €12,534.33); `sessions` holds only 64-hex sha256 ids, never the
-  token; logout deletes the row and the old token gets 401; bad logins → 429 with `Retry-After`;
-  `Origin: https://evil.example` → 403; `/api/account` without a cookie → 401 (no `@Public()`). In
-  the browser: login, reload stays signed in, sign out, reload shows the login screen.
+- **History:** this section was first built with our own auth (bcrypt checks against
+  `users.password_hash`, a `sessions` table, an httpOnly cookie, an Origin check and in-memory
+  login throttling; commit `feac7bd`). On 2026-11-21 the owner decided not to handle
+  authentication ourselves, so it was replaced by Supabase Auth.
+- **Five demo logins instead of seven (owner, 2026-11-23):** one per level, worst to best:
+  `demo_critical` (was `demo_bad`), `demo_tight` (`demo_headsup`), `demo_steady` (`demo_young`),
+  `demo_solid` (`demo`, the public login), `demo_thriving` (`demo_good`). Emails are
+  `<username>@demo.de`. `demo_idle` and `demo_spending` were deleted with their transactions,
+  leaving 5 users and 2,406 transactions.
+- **`GET /api/account` was pulled forward from section 05.** `demoAccount()` was already deleted
+  in section 01, so after login there was nothing to show. `AccountResponse` (contracts, checked
+  equal to core's `Account`) and `AccountController` (`src/transactions/`) are here; section 05
+  adds the writes.
+- **The project signs tokens with ES256**, so `/.well-known/jwks.json` has its public key and
+  tokens are verified locally. If the project ever goes back to the legacy HS256 secret, the JWKS
+  is empty and every request would get 401.
+- **API responses are `Cache-Control: no-store` and ETags are off**: per-user data shouldn't be
+  cached anywhere.
+- Server-side mentions of Supabase as the Postgres host stay; the web app uses the Supabase
+  client only in `src/lib/auth.ts`.

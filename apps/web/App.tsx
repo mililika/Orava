@@ -5,7 +5,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Account } from '@orava/core';
 
-import { getAccount, logout, me, setUnauthorizedHandler } from './src/lib/api';
+import { getAccount, setUnauthorizedHandler } from './src/lib/api';
+import { accessToken, onSignedOut, signOut } from './src/lib/auth';
 import { MainScreen } from './src/screens/MainScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { colors } from './src/theme';
@@ -15,26 +16,23 @@ export default function App() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
 
   useEffect(() => {
-    // Any 401 later on (the session expired or was signed out elsewhere) goes back to login.
-    setUnauthorizedHandler(() => setAccount(null));
+    // Signed out here, in another tab, or the session couldn't be refreshed: back to login.
+    const unsubscribe = onSignedOut(() => setAccount(null));
+    // Our API refused the token (e.g. no Orava user is linked to it): end the session too.
+    setUnauthorizedHandler(() => void signOut());
+    // After a reload, Supabase restores the session from localStorage; then load the account.
     (async () => {
       try {
-        setAccount((await me()) ? await getAccount() : null);
+        setAccount((await accessToken()) ? await getAccount() : null);
       } catch {
         setAccount(null); // e.g. the server is down: the login screen says so on the next try
       }
     })();
-    return () => setUnauthorizedHandler(undefined);
+    return () => {
+      unsubscribe();
+      setUnauthorizedHandler(undefined);
+    };
   }, []);
-
-  const signOut = async () => {
-    try {
-      await logout();
-    } catch {
-      // Signed out on this screen anyway; the server session expires on its own.
-    }
-    setAccount(null);
-  };
 
   return (
     <SafeAreaProvider>

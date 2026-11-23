@@ -2,7 +2,6 @@ import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -19,7 +18,6 @@ async function bootstrap() {
   const config = app.get(AppConfig);
 
   app.setGlobalPrefix('api');
-  app.set('trust proxy', config.get('TRUST_PROXY_HOPS'));
   app.use(helmet());
   // Every response is per user (or an error): never cached, by the browser or anything in between.
   app.set('etag', false);
@@ -27,9 +25,8 @@ async function bootstrap() {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
-  app.use(cookieParser());
   app.useBodyParser('json', { limit: '64kb' });
-  app.enableCors({ origin: config.get('WEB_ORIGIN'), credentials: true });
+  app.enableCors({ origin: config.get('WEB_ORIGIN') });
   app.enableShutdownHooks();
 
   await app.listen(config.get('PORT'), '0.0.0.0');

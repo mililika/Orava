@@ -46,7 +46,8 @@ reading the rest of the plan first. Read this file first, then the section you a
                                    └───────────┬───────────┘
                                                │
                                    ┌───────────▼───────────┐
-                                   │ Supabase Postgres     │  users, transactions, sessions
+                                   │ Supabase Postgres     │  users, transactions
+                                   │ + Supabase Auth       │  passwords and sessions
                                    └───────────────────────┘
 ```
 
@@ -79,15 +80,15 @@ runs with `npm run web` as before. There's no local database.
 | Tests | **None for now.** No automated tests; verify by typecheck and by running the app (see rules below). | The owner's call: tests would mostly be noise at this stage. |
 | Package manager | **npm** (workspaces, one root `package-lock.json`). Not pnpm or yarn. | Already used; works with Expo's Metro and Docker without extra config. |
 | Repo | npm workspaces monorepo: `apps/web` (the current `mobile/`), `apps/server`, `packages/core`, `packages/contracts` | The server needs the same health engine as the client to build AI context, and both sides share the API contracts. |
-| Client ↔ data | **The web app talks only to our API.** No database client, Supabase SDK or key, database URL or AI key in the web app; no direct database access from the browser in any form. Supabase's Data API is locked out in the schema (RLS on, API roles revoked). Checked in CI (section 07). | One place to enforce auth, validation and limits; secrets stay on the server. |
+| Client ↔ data | **The web app talks only to our API for data.** The one exception is sign-in: the web app uses the Supabase client with the public **publishable key** for Supabase Auth only (`src/lib/auth.ts`). No database URL, secret key, AI key or data queries in the web app; no direct database access from the browser in any form. Supabase's Data API is locked out in the schema (RLS on, API roles revoked). Checked in CI (section 07). | One place to enforce auth, validation and limits; secrets stay on the server. |
 | Server | Node (current LTS) + TypeScript + **NestJS** (Express adapter) | Structured modules, dependency injection, guards and pipes. A well-known framework to learn. |
 | Contracts | **zod** schemas in `packages/contracts` (`@orava/contracts`) for every request and response body, query and SSE event. The server validates with them through a zod validation pipe; the web app uses the inferred types (and parses responses with them in dev). Env vars are also validated with zod. | One definition per shape: a change on one side is a type error on the other. |
-| Database | **Supabase, used only as hosted Postgres** (no Supabase Auth, Data API or client SDK). Already set up by the owner (schema in section 03; the SQL files aren't in the repo); the same database serves local development and production. Tables: **`users`**, **`transactions`** (per user), and **`sessions`** (login). Nothing else. Plural, snake_case names. The server uses **Drizzle ORM** as a typed query builder only; no migrations tool. | Done once by the owner, so implementation agents don't touch the database. |
-| Auth | **Our own session auth** in the server: **bcrypt** password hashes (cost 12; salt is part of the hash), opaque session token in an `httpOnly` cookie, sessions stored in Postgres. No Supabase Auth or other provider. | Small surface (login, logout, me), portable. bcrypt because the existing hashes were made with Postgres's `pgcrypto`. |
-| Users | **Seven demo users from the challenge data**; each one's password is its username (`demo` / `demo`, `demo_good` / `demo_good`, …), stored only as bcrypt hashes. `demo` is the public login; the others show different money situations live. Any further user is created by the owner directly in Supabase with their own password (snippet in section 03), never written in the repo. No public sign-up, no guest or "Continue with demo data" mode. | Shows every Money health state with realistic synthetic data; no anonymous AI usage. |
-| Data | Loaded once into Supabase: the 7 hand-picked customers of the synthetic S-Bank Junction 2026 challenge data (one per Money health state; `demo` was `demo_steady`), 3,331 transactions, Oct 2024 – Sep 2026. The generated `demoAccount.ts` is deleted once login works (sections 04–05). | Synthetic data from the challenge organisers. |
+| Database | **Supabase Postgres** (plus Supabase Auth for login, see Auth; no Data API). Already set up by the owner (schema in section 03; the SQL files aren't in the repo); the same database serves local development and production. Tables: **`users`** (linked to Supabase Auth by `auth_user_id`) and **`transactions`** (per user). Nothing else. Plural, snake_case names. The server uses **Drizzle ORM** as a typed query builder only; no migrations tool. | Done once by the owner, so implementation agents don't touch the database. |
+| Auth | **Supabase Auth** (email + password). The browser signs in with supabase-js; our API verifies the access token (`Authorization: Bearer`) against the project's public signing keys and maps it to `users` by `auth_user_id`. We never handle passwords, hashes or sessions ourselves. | The owner doesn't want to run authentication; Supabase already hosts the database. (A first version with our own bcrypt/session auth was replaced, see section 04 notes.) |
+| Users | **Five demo users from the challenge data**, one per Money health level; each one is a Supabase Auth user (email + password set by the owner in the dashboard). `demo_critical`, `demo_tight`, `demo_steady`, `demo_solid`, `demo_thriving`; `demo_solid` is the public login. Any further user is created by the owner in Supabase Auth and linked in `users` (steps in section 04), never written in the repo. No public sign-up (turned off in Supabase Auth), no guest or "Continue with demo data" mode. | Shows every Money health state with realistic synthetic data; no anonymous AI usage. |
+| Data | Loaded once into Supabase: 5 hand-picked customers of the synthetic S-Bank Junction 2026 challenge data (one per Money health level; 7 were loaded, renamed and cut to 5 in section 04), 2,406 transactions, Oct 2024 – Sep 2026. The generated `demoAccount.ts` is deleted once login works (sections 04–05). | Synthetic data from the challenge organisers. |
 | AI | Gemini is called **only from the server**. The server builds the prompt from the DB, not from the client. Overview cache and usage limits are kept **in server memory** (no tables). | Fixes the key leak and stops the API from becoming an open Gemini relay. In-memory is enough at 1–2 Cloud Run instances. |
-| Hosting | **Vercel** (web) + **Google Cloud Run** (server, region `europe-north1`) + **Supabase** Postgres. Vercel rewrites `/api/*` to Cloud Run so the browser sees one origin. | Standard "frontend on a CDN, API in a container" setup, and it keeps cookies first-party. |
+| Hosting | **Vercel** (web) + **Google Cloud Run** (server, region `europe-north1`) + **Supabase** Postgres. Vercel rewrites `/api/*` to Cloud Run so the browser sees one origin. | Standard "frontend on a CDN, API in a container" setup, with no CORS between the app and its API. |
 
 ## Open questions for the owner
 
@@ -107,7 +108,7 @@ Deployment comes last.
 | 01 | [01-repo-and-core.md](01-repo-and-core.md) | Monorepo, shared `@orava/core` and `@orava/contracts` packages, repo cleanup |
 | 02 | [02-server.md](02-server.md) | NestJS server skeleton, zod pipe, config, Dockerfile |
 | 03 | [03-database.md](03-database.md) | Connect the server to the ready Supabase database; Drizzle schema and repositories |
-| 04 | [04-auth.md](04-auth.md) | Login, logout, sessions; client login wired to the server; demo mode removed |
+| 04 | [04-auth.md](04-auth.md) | Login with Supabase Auth; the API verifies its tokens; demo mode removed |
 | 05 | [05-transactions.md](05-transactions.md) | Transactions API; added and deleted transactions persist |
 | 06 | [06-ai.md](06-ai.md) | Overview and chat on the server, rate limits, client switched over |
 | 07 | [07-ci.md](07-ci.md) | GitHub Actions: format, lint, typecheck, build, leak guards |
@@ -121,8 +122,9 @@ Deployment comes last.
 - **Contracts first.** A new or changed endpoint starts with its zod schemas in
   `packages/contracts`. Never declare a request or response type by hand in the server or the web
   app; import it from `@orava/contracts`.
-- **The web app only talks to `/api`.** Never add a database client, a database URL or a
-  third-party API key to `apps/web`.
+- **The web app only talks to `/api` for data.** Never add a database client, a database URL or a
+  third-party API key to `apps/web`. The only exception is Supabase Auth sign-in in
+  `src/lib/auth.ts`, with the publishable key.
 - **Don't trust memory for library APIs.** Expo, NestJS, zod, Drizzle and the Gemini API all change.
   Check the current docs for the installed version before using an API. For Expo, follow
   `apps/web/AGENTS.md` (was `mobile/AGENTS.md`).
@@ -157,4 +159,4 @@ Deployment comes last.
 - 2026-11-20 · 01 · npm workspaces monorepo (`apps/web`, `packages/core`, `packages/contracts`), engine moved to `@orava/core`, contracts skeleton, README and comments cleaned up. Done on `post-hackathon-improvements` (no PR).
 - 2026-11-20 · 02 · NestJS 12 server skeleton in `apps/server`: zod validation pipe, env config, pino logging, error filter, `GET /api/health`, Dockerfile. On `post-hackathon-improvements` (no PR).
 - 2026-11-20 · 03 · Drizzle 0.45 + postgres.js against Supabase: `schema.ts`, `DbModule`, users and transactions repositories, DB check in health. On `post-hackathon-improvements` (no PR).
-- 2026-11-21 · 04 · Session auth (bcrypt, hashed session tokens, httpOnly cookie, global session and Origin guards, login throttling), `GET /api/account` pulled forward from 05, web login wired to the server, Supabase removed from the web app. On `post-hackathon-improvements` (no PR).
+- 2026-11-21 · 04 · First built with our own auth (bcrypt, sessions table, httpOnly cookie, Origin check, login throttling); replaced the same day by **Supabase Auth**: supabase-js sign-in in the web app, the API verifies access tokens (JWKS) and links users by `auth_user_id`. `GET /api/account` pulled forward from 05. On `post-hackathon-improvements` (no PR).
