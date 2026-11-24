@@ -1,5 +1,5 @@
-// The signed-in user's account: `GET /api/account`. Section 05 adds the write side
-// (adding and deleting transactions) in transactions.ts.
+// The signed-in user's account: `GET /api/account`. Adding and deleting transactions is in
+// transactions.ts.
 
 import { z } from 'zod';
 

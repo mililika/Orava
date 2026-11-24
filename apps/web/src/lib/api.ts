@@ -1,13 +1,22 @@
 // The only place in the web app that talks to our server. Every request and response shape comes
 // from @orava/contracts. Each request carries the Supabase Auth access token (lib/auth.ts).
 
-import { AccountResponse, ApiErrorBody, type ErrorCode } from '@orava/contracts';
+import {
+  AccountResponse,
+  ApiErrorBody,
+  type CreateTransactionRequest,
+  CreateTransactionResponse,
+  type ErrorCode,
+} from '@orava/contracts';
 import type { Account } from '@orava/core';
 
 import { accessToken, signOut } from './auth';
 
 /** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
 type Schema<T> = { parse(data: unknown): T };
+
+/** For 204 responses, which have no body to check. */
+const NO_CONTENT: Schema<void> = { parse: () => undefined };
 
 // Empty in production: the API is on the same origin, behind Vercel's /api rewrite.
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? 'http://localhost:8080' : '');
@@ -55,6 +64,7 @@ async function request<T>(
       : new ApiError(res.status, 'internal', `Server error (${res.status}).`);
   }
 
+  if (res.status === 204) return undefined as T;
   const json: unknown = await res.json();
   // In development, a server/client mismatch fails loudly here instead of somewhere in the UI.
   return __DEV__ ? schema.parse(json) : (json as T);
@@ -63,4 +73,16 @@ async function request<T>(
 /** The signed-in user's balance and transactions, newest first. 401 when signed out. */
 export function getAccount(): Promise<Account> {
   return request('GET', '/account', AccountResponse);
+}
+
+/** Saves a new transaction and returns it as saved: the server dates and types it. */
+export function createTransaction(
+  body: CreateTransactionRequest,
+): Promise<CreateTransactionResponse> {
+  return request('POST', '/transactions', CreateTransactionResponse, body);
+}
+
+/** Deletes one of the user's transactions. 404 if it isn't theirs. */
+export function deleteTransaction(id: string): Promise<void> {
+  return request('DELETE', `/transactions/${encodeURIComponent(id)}`, NO_CONTENT);
 }

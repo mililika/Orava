@@ -15,35 +15,30 @@ import {
 
 import { AppHeader } from '../components/AppChrome';
 import { CategoryIcon } from '../components/CategoryIcon';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Mood } from '@orava/core';
+import { type CreateTransactionRequest, MAX_AMOUNT, MAX_MERCHANT_LENGTH } from '@orava/contracts';
+import { type Category, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type Mood } from '@orava/core';
 
 import { categoryInfo } from '../data/categories';
 import { colors, radius } from '../theme';
-
-export interface NewTx {
-  category: string;
-  merchant: string;
-  /** Signed: negative = money out. */
-  amount: number;
-}
 
 export function AddTransactionScreen({
   onSave,
   onClose,
   orava,
 }: {
-  onSave: (t: NewTx) => void;
+  onSave: (t: CreateTransactionRequest) => void;
   onClose: () => void;
   orava?: { mood: Mood; onPress: () => void };
 }) {
   const [kind, setKind] = useState<'out' | 'in'>('out');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const cats = kind === 'out' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-  const value = Number(amount.replace(',', '.'));
+  // In euros, rounded to cents: what gets saved.
+  const value = Math.round(Number(amount.replace(',', '.')) * 100) / 100;
 
   const switchKind = (k: 'out' | 'in') => {
     setKind(k);
@@ -53,11 +48,12 @@ export function AddTransactionScreen({
 
   const save = () => {
     if (!(value > 0)) return setError('Enter an amount above zero.');
+    if (value > MAX_AMOUNT) return setError(`Enter at most ${MAX_AMOUNT.toLocaleString('en')} €.`);
     if (!category) return setError('Choose a category.');
     onSave({
       category,
       merchant: note.trim() || categoryInfo(category).name,
-      amount: Math.round((kind === 'out' ? -value : value) * 100) / 100,
+      amount: kind === 'out' ? -value : value,
     });
   };
 
@@ -141,6 +137,7 @@ export function AddTransactionScreen({
             style={s.input}
             value={note}
             onChangeText={setNote}
+            maxLength={MAX_MERCHANT_LENGTH}
             placeholder={category ? categoryInfo(category).name : 'e.g. S-market'}
             placeholderTextColor="#9aa59d"
             returnKeyType="done"

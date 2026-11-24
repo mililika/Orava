@@ -22,8 +22,8 @@ user adds or deletes are saved, so they're still there after a reload.
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/account` | none | `{ username, balance, txs }`: the existing `Account` shape, `txs` newest first |
-| POST | `/api/transactions` | `{ category, merchant, amount }` | 201 `{ tx, balance }` |
-| DELETE | `/api/transactions/:id` | none | 200 `{ balance }` · 404 if not this user's |
+| POST | `/api/transactions` | `{ category, merchant, amount }` | 201 `{ tx }` |
+| DELETE | `/api/transactions/:id` | none | 204 · 404 if not this user's |
 
 Validation: `category` must be a known category from `@orava/core`; `merchant` 1–80 chars,
 trimmed; `amount` non-zero, at most ±1,000,000, two decimals. Expense vs income follows the sign,
@@ -35,33 +35,33 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
 
 ### Contracts (first)
 
-- [ ] `packages/contracts/src/account.ts` and `transactions.ts`: `AccountResponse`,
+- [x] `packages/contracts/src/account.ts` and `transactions.ts`: `AccountResponse`,
       `CreateTransactionRequest` (with the validation rules above), `CreateTransactionResponse`,
       `DeleteTransactionResponse`, and `TransactionIdParam`. Reuse `TransactionDto` and the
       category enum from section 01.
 
 ### Server (`TransactionsModule`)
 
-- [ ] Repository: `add`, `softDelete` (only where `user_id` matches).
-- [ ] `AccountController` and `TransactionsController`: the three routes, validated with the
+- [x] Repository: `add`, `softDelete` (only where `user_id` matches).
+- [x] `AccountController` and `TransactionsController`: the three routes, validated with the
       contracts schemas, typed with the contracts response types, user from `@CurrentUser()`
       (the global `AuthGuard` already requires a signed-in user).
-- [ ] Limit per user: at most 500 `user` transactions (keeps one account from filling the DB);
+- [x] Limit per user: at most 500 `user` transactions (keeps one account from filling the DB);
       return 409 with a readable message beyond that.
 
 ### Web app
 
-- [ ] Add `getAccount`, `createTransaction`, `deleteTransaction` to `lib/api.ts`, typed from
+- [x] Add `getAccount`, `createTransaction`, `deleteTransaction` to `lib/api.ts`, typed from
       `@orava/contracts`. `AddTransactionScreen`'s `NewTx` becomes `CreateTransactionRequest`.
 
-- [ ] After login (and on reload via `/api/me`), load `/api/account`. Remove the client-side
+- [x] After login (and on reload via `/api/me`), load `/api/account`. Remove the client-side
       `demoAccount()` call and the TODO from section 04, and delete `demoAccount.ts` (nothing uses it
       any more).
-- [ ] `MainScreen.tsx`: `save` and `remove` call the API. Keep the screen responsive: update the
+- [x] `MainScreen.tsx`: `save` and `remove` call the API. Keep the screen responsive: update the
       list right away, then reconcile with the server's response (replace the temporary id with the
-      real one, use the returned balance). On failure, undo the change and show the error in the
+      real one; the balance follows the list). On failure, undo the change and show the error in the
       existing toast.
-- [ ] Delete the in-memory `added` / `removed` bookkeeping that becomes unnecessary.
+- [x] Delete the in-memory `added` / `removed` bookkeeping that becomes unnecessary.
 
 ## Acceptance criteria
 
@@ -80,3 +80,22 @@ Transaction ids go to the client as strings (as now), so `@orava/core` doesn't c
   `AccountController` in `apps/server/src/transactions/`, `getAccount()` in the web app's
   `lib/api.ts`, called after login and on reload. There's no `demoAccount()` call or TODO left to
   remove (it was deleted in section 01). This section adds the write side.
+- **"Today" lives in `TodayService.todayFor(userId)`** (`apps/server/src/transactions/today.service.ts`):
+  the newest `seed` date, deleted rows included, so deleting that transaction doesn't move "today".
+- **The 500 limit counts every `user` row, deleted ones included**, so adding and deleting in a
+  loop can't get around it. The count and the insert run in one DB transaction that locks the
+  user's row (`addWithinLimit`), so parallel requests can't overshoot it.
+- **The sign must match the category** (`CreateTransactionRequest`): income categories need a
+  positive amount, the rest a negative one. The server rejects a mismatch with 400.
+- **The web app works the balance out from the list** instead of storing the server's returned
+  balance: opening balance (from the loaded account) + the sum of the listed transactions, in
+  cents. That's the server's own definition, and it stays right while adds and deletes overlap or
+  get undone, which mixing returned balances with undo-by-amount didn't. So the write routes don't
+  send a balance (first planned as `{ tx, balance }` and `{ balance }`): POST returns `{ tx }`,
+  DELETE returns 204, and neither runs the extra sum query.
+- **Web extras:** a row that's still being saved can't be deleted yet ("Still saving"); a delete
+  that comes back 404 (already deleted elsewhere) keeps the row gone instead of restoring it; the
+  add form validates the rounded amount, the ±1,000,000 limit and the 80-character description.
+- **Verified 2026-11-24 as `demo_solid`:** add → reload → delete (row 3332); deleting seed row 993
+  survives a reload; with the server stopped, adding shows "Not saved: Cannot reach the server"
+  and the list and balance go back; a delete scoped to another user matches no rows (404).
