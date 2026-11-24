@@ -60,7 +60,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
   // Gemini's overview of the newest month: asked once after login, then again each time a
   // transaction is added or removed (cached per month, see orava/overview.ts).
   const lastMonth = useMemo(() => monthRange(txs).last, [txs]);
-  const { overview, loading } = useOverview(account.username, lastMonth, report, true);
+  const { overview, loading, message } = useOverview(lastMonth, txs, report.orava.message);
 
   // The server dates new transactions with the newest day in the data ("today"); this guess
   // only places the row until the server answers.
@@ -114,7 +114,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
             orava={headerOrava}
           />
         ) : screen === 'health' ? (
-          <HealthScreen user={account.username} report={report} onBack={() => setScreen('home')} />
+          <HealthScreen report={report} onBack={() => setScreen('home')} />
         ) : (
           <>
             <AppHeader
@@ -128,7 +128,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
               orava={{
                 mood: report.orava.mood,
                 score: report.orava.score,
-                message: overview?.summary,
+                message,
                 thinking: loading,
                 insight: overview,
               }}

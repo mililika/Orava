@@ -5,10 +5,10 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
-import type { Overview } from '../orava/overview';
+import type { OverviewDto } from '@orava/contracts';
 import { colors } from '../theme';
 
-export function OravaInsight({ overview }: { overview: Overview }) {
+export function OravaInsight({ overview }: { overview: OverviewDto }) {
   const [tagWidth, setTagWidth] = useState(0);
   const measure = (e: LayoutChangeEvent) => {
     const w = Math.ceil(e.nativeEvent.layout.width);

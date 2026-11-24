@@ -58,12 +58,9 @@ const SCORE_COLOR: Record<Mood, string> = {
 };
 
 export function HealthScreen({
-  user,
   report: latest,
   onBack,
 }: {
-  /** Username: the AI overview cache is per user. */
-  user: string;
   report: HealthReport;
   onBack: () => void;
 }) {
@@ -77,7 +74,7 @@ export function HealthScreen({
     [latest, month, last],
   );
   const { orava, score } = report;
-  const { overview, loading } = useOverview(user, month, report, month >= last);
+  const { overview, loading, message } = useOverview(month, latest.txs, orava.message);
   const mood = MOODS[orava.mood];
 
   return (
@@ -120,7 +117,7 @@ export function HealthScreen({
                   />
                 </Pressable>
               </View>
-              {overview?.summary ? <Text style={s.message}>{overview.summary}</Text> : null}
+              {message ? <Text style={s.message}>{message}</Text> : null}
               {report.partial ? (
                 <Text style={s.note}>
                   Salary moves to another bank, so this account is scored on spending.
@@ -156,7 +153,7 @@ export function HealthScreen({
 
         <RecurringCard r={report.recurring} />
       </ScrollView>
-      <OravaChat user={user} report={report} />
+      <OravaChat month={month} report={report} />
     </KeyboardAvoidingView>
   );
 }

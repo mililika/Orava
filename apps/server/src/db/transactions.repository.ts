@@ -34,6 +34,12 @@ export type NewTransaction = Omit<Transaction, 'id'>;
 export class TransactionsRepository {
   constructor(@Inject(DB) private readonly db: Db) {}
 
+  /** The user's transactions (newest first) and balance: what @orava/core's reports start from. */
+  async accountOf(user: User): Promise<{ txs: Transaction[]; balance: number }> {
+    const [txs, balance] = await Promise.all([this.list(user.id), this.balanceOf(user)]);
+    return { txs, balance };
+  }
+
   /** The user's transactions, newest first, without deleted ones. */
   async list(userId: string): Promise<Transaction[]> {
     const rows = await this.db

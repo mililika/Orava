@@ -1,15 +1,21 @@
 // What Gemini knows when it answers in the Orava chat: a coach persona (system prompt) and a
 // compact snapshot of the user's HealthReport, the Finnish benchmarks and the patterns we found
-// in the S-Bank dataset (summarised in benchmarks.json). Pure: no UI, no network.
+// in the S-Bank dataset (summarised in @orava/core's benchmarks.json). Server-only: the prompt
+// never ships to the browser. Pure: no network.
 
-import { BENCH, quintileOf } from './benchmarks';
-import { categoryInfo } from './categories';
-import { aheadVerdict } from './ahead';
-import { basketOf } from './baskets';
-import type { HealthReport } from './health';
-import { eur } from './format';
-import { averageByCategory, basketSums, monthLabel } from './months';
-import { MOOD_LABELS } from './moods';
+import {
+  aheadVerdict,
+  averageByCategory,
+  basketOf,
+  basketSums,
+  BENCH,
+  categoryInfo,
+  eur,
+  type HealthReport,
+  monthLabel,
+  MOOD_LABELS,
+  quintileOf,
+} from '@orava/core';
 
 const r = (n: number) => Math.round(n);
 /** Same share format as the Money health page. */

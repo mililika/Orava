@@ -25,7 +25,8 @@ async function bootstrap() {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
-  app.useBodyParser('json', { limit: '64kb' });
+  // The biggest body is a chat: 20 messages × 2,000 characters, up to 4 bytes each in UTF-8.
+  app.useBodyParser('json', { limit: '256kb' });
   app.enableCors({ origin: config.get('WEB_ORIGIN') });
   app.enableShutdownHooks();
 

@@ -12,10 +12,6 @@ export class AccountController {
   /** The signed-in user's balance and transactions, newest first. */
   @Get()
   async get(@CurrentUser() user: User): Promise<AccountResponse> {
-    const [txs, balance] = await Promise.all([
-      this.transactions.list(user.id),
-      this.transactions.balanceOf(user),
-    ]);
-    return { username: user.username, balance, txs };
+    return { username: user.username, ...(await this.transactions.accountOf(user)) };
   }
 }

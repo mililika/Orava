@@ -30,12 +30,21 @@ function bodyParserStatus(exception: unknown): number | undefined {
     : undefined;
 }
 
-function namedError(response: string | object): { code?: ErrorCode; message?: string } {
+/** An HttpException thrown with `{ code, message, details? }` keeps its code and details. */
+function namedError(response: string | object): {
+  code?: ErrorCode;
+  message?: string;
+  details?: unknown;
+} {
   if (typeof response !== 'object') return {};
-  const { code, message } = response as { code?: unknown; message?: unknown };
+  const { code, message, details } = response as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
   const parsed = ErrorCode.safeParse(code);
   return parsed.success
-    ? { code: parsed.data, message: typeof message === 'string' ? message : undefined }
+    ? { code: parsed.data, message: typeof message === 'string' ? message : undefined, details }
     : {};
 }
 
@@ -64,14 +73,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      if (status >= 500) return this.internal(exception, status);
       const named = namedError(exception.getResponse());
+      // A 5xx keeps its own message only when it was thrown on purpose with a code
+      // (e.g. 503 ai_unavailable); anything else is an unexpected error.
+      if (status >= 500 && !named.code) return this.internal(exception, status);
       return [
         status,
         {
           error: {
             code: named.code ?? codeForStatus(status),
             message: named.message ?? exception.message,
+            ...(named.details !== undefined && { details: named.details }),
           },
         },
       ];

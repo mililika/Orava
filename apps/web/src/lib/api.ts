@@ -3,13 +3,21 @@
 
 import {
   AccountResponse,
+  AiLimitDetails,
   ApiErrorBody,
+  ChatEvent,
+  type ChatRequest,
   type CreateTransactionRequest,
   CreateTransactionResponse,
   type ErrorCode,
+  type OverviewDto,
+  OverviewResponse,
 } from '@orava/contracts';
 import type { Account } from '@orava/core';
+// expo/fetch streams response bodies (the chat) on every platform; on web it's the browser's fetch.
+import { fetch } from 'expo/fetch';
 
+import { reportLimit } from './aiLimit';
 import { accessToken, signOut } from './auth';
 
 /** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
@@ -27,20 +35,37 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: ErrorCode | 'network',
     message: string,
+    /** Extra machine-readable info, e.g. `AiLimitDetails` for `ai_limit`. */
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+
+  /** For 429 `ai_limit`: when the user can ask again, and their hourly limit. */
+  get aiLimit(): AiLimitDetails | null {
+    if (this.code !== 'ai_limit') return null;
+    const parsed = AiLimitDetails.safeParse(this.details);
+    return parsed.success ? parsed.data : null;
+  }
 }
 
-async function request<T>(
+/**
+ * AI errors that are part of normal use, so not worth a console warning: no AI on the server, or
+ * the AI limit (the limit modal shows that).
+ */
+export const isExpectedAiError = (e: unknown) =>
+  e instanceof ApiError && (e.code === 'ai_unavailable' || e.code === 'ai_limit');
+
+/** Sends a request with the access token; returns the response once it's OK, else throws ApiError. */
+async function send(
   method: 'GET' | 'POST' | 'DELETE',
   path: string,
-  schema: Schema<T>,
   body?: unknown,
-): Promise<T> {
+  signal?: AbortSignal,
+) {
   const token = await accessToken();
-  let res: Response;
+  let res: Awaited<ReturnType<typeof fetch>>;
   try {
     res = await fetch(`${BASE}/api${path}`, {
       method,
@@ -49,21 +74,33 @@ async function request<T>(
         ...(body !== undefined && { 'Content-Type': 'application/json' }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
-  } catch {
+  } catch (e) {
+    if (signal?.aborted) throw e;
     throw new ApiError(0, 'network', 'Cannot reach the server. Check your connection.');
   }
+  if (res.ok) return res;
 
-  if (!res.ok) {
-    const parsed = ApiErrorBody.safeParse(await res.json().catch(() => null));
-    // The session ended or the login has no Orava account: end it here too. App's onSignedOut
-    // listener then shows the login screen.
-    if (res.status === 401) await signOut();
-    throw parsed.success
-      ? new ApiError(res.status, parsed.data.error.code, parsed.data.error.message)
-      : new ApiError(res.status, 'internal', `Server error (${res.status}).`);
-  }
+  const parsed = ApiErrorBody.safeParse(await res.json().catch(() => null));
+  // The session ended or the login has no Orava account: end it here too. App's onSignedOut
+  // listener then shows the login screen.
+  if (res.status === 401) await signOut();
+  if (!parsed.success) throw new ApiError(res.status, 'internal', `Server error (${res.status}).`);
+  const { code, message, details } = parsed.data.error;
+  const error = new ApiError(res.status, code, message, details);
+  // Orava's AI limit: LimitModal shows the server's message and when the user can ask again.
+  if (error.aiLimit) reportLimit({ message, retryAt: error.aiLimit.retryAt });
+  throw error;
+}
 
+async function request<T>(
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  schema: Schema<T>,
+  body?: unknown,
+): Promise<T> {
+  const res = await send(method, path, body);
   if (res.status === 204) return undefined as T;
   const json: unknown = await res.json();
   // In development, a server/client mismatch fails loudly here instead of somewhere in the UI.
@@ -85,4 +122,53 @@ export function createTransaction(
 /** Deletes one of the user's transactions. 404 if it isn't theirs. */
 export function deleteTransaction(id: string): Promise<void> {
   return request('DELETE', `/transactions/${encodeURIComponent(id)}`, NO_CONTENT);
+}
+
+/** Orava's read of a month (Gemini, cached on the server until the month's data changes). */
+export async function getOverview(month: string): Promise<OverviewDto> {
+  const { overview } = await request(
+    'GET',
+    `/ai/overview?month=${encodeURIComponent(month)}`,
+    OverviewResponse,
+  );
+  return overview;
+}
+
+/**
+ * Asks Orava. `onEvent` gets each server-sent event as it arrives; resolves when the stream ends.
+ * Errors before the stream starts (limit, no AI, network) throw ApiError.
+ */
+export async function streamChat(
+  body: ChatRequest,
+  onEvent: (event: ChatEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await send('POST', '/ai/chat', body, signal);
+  // Each event is a "data: {json}" line followed by a blank line; one can span network chunks.
+  const take = (lines: string[]) => {
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      let data: unknown;
+      try {
+        data = JSON.parse(line.slice(5));
+      } catch {
+        continue; // a malformed line
+      }
+      const event = ChatEvent.safeParse(data);
+      if (event.success) onEvent(event.data);
+    }
+  };
+  const reader = res.body?.getReader();
+  if (!reader) return take((await res.text()).split(/\r?\n/));
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? '';
+    take(lines);
+  }
+  take([buffer + decoder.decode()]);
 }

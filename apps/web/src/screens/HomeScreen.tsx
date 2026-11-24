@@ -3,7 +3,7 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { OravaCard } from '../components/OravaCard';
-import type { Overview } from '../orava/overview';
+import type { OverviewDto } from '@orava/contracts';
 import type { Mood, Transaction } from '@orava/core';
 import { TransactionList } from '../components/TransactionList';
 import { SectionHead } from '../components/ui';
@@ -18,7 +18,7 @@ interface Props {
     score: number | null;
     message?: string;
     thinking?: boolean;
-    insight?: Overview | null;
+    insight?: OverviewDto | null;
   };
   onOpenHealth: () => void;
   onAdd: () => void;

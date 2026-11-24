@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Mascot } from '../orava/Mascot';
 import { MOODS } from '../orava/moods';
-import type { Overview } from '../orava/overview';
+import type { OverviewDto } from '@orava/contracts';
 import type { Mood } from '@orava/core';
 import { colors, radius } from '../theme';
 import { Icon } from './Icon';
@@ -29,7 +29,7 @@ export function OravaCard({
   /** Gemini is still writing the overview. */
   thinking?: boolean;
   /** Gemini's good / watch lines for the month, under the message. */
-  insight?: Overview | null;
+  insight?: OverviewDto | null;
   onOpen: () => void;
 }) {
   const m = MOODS[mood];

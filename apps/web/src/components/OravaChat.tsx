@@ -1,11 +1,12 @@
 // "Ask Orava": an input pinned to the bottom of Money health. Answers open in a panel above it.
-// Answers come from Gemini (lib/gemini.ts) with the user's report as context (orava/coach.ts).
-// Without a Gemini key, or if the call fails, the offline keyword answers (orava/chat.ts) step in.
-// Replies stream in: Gemini's chunks arrive as they're written, and the bubble types them out.
+// Answers come from Gemini through our server (POST /api/ai/chat), which adds the user's data for
+// the open month. If the server has no AI or the call fails, the offline keyword answers
+// (@orava/core's chat.ts) step in. Replies stream in as server-sent events, and the bubble types
+// them out.
 // The panel never takes more than half the screen. Minimize hides it and keeps the conversation
 // (a slim bar brings it back); close ends it, so the next question starts a new chat.
 
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,9 +17,11 @@ import {
   View,
 } from 'react-native';
 
-import { geminiConfigured, streamGemini, type ChatTurn } from '../lib/gemini';
-import { minutesUntil, RateLimitError } from '../lib/rateLimit';
-import { answer, coachSystem, type HealthReport, plainText, SUGGESTIONS } from '@orava/core';
+import { type ChatMessage, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_MESSAGES } from '@orava/contracts';
+import { answer, type HealthReport, SUGGESTIONS } from '@orava/core';
+
+import { minutesUntil } from '../lib/aiLimit';
+import { ApiError, isExpectedAiError, streamChat } from '../lib/api';
 import { colors, radius } from '../theme';
 import { Icon } from './Icon';
 
@@ -27,12 +30,24 @@ interface Msg {
   text: string;
 }
 
-export function OravaChat({ user, report }: { user: string; report: HealthReport }) {
+const limitReply = (retryAt: number) =>
+  `I've hit my limit. Ask me again in ${minutesUntil(retryAt)}.`;
+
+/** The conversation as the server takes it: the newest messages, each cut to the allowed length. */
+const toMessages = (msgs: Msg[]): ChatMessage[] =>
+  msgs
+    .filter((m) => m.text.trim())
+    .slice(-MAX_CHAT_MESSAGES)
+    .map((m) => ({
+      role: m.from === 'me' ? 'user' : 'model',
+      text: m.text.slice(0, MAX_CHAT_MESSAGE_LENGTH),
+    }));
+
+export function OravaChat({ month, report }: { month: string; report: HealthReport }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
   const [focused, setFocused] = useState(false);
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
-  const system = useMemo(() => coachSystem(report), [report]);
 
   // The reply being written is the last message. `shown` is how many of its characters are on
   // screen (null when no reply is in progress); `target` is what has arrived so far.
@@ -42,12 +57,15 @@ export function OravaChat({ user, report }: { user: string; report: HealthReport
   const [minimized, setMinimized] = useState(false);
   // Bumped when a chat is closed, so a reply still streaming into it is dropped.
   const chatId = useRef(0);
+  // Cancels the reply being streamed when the chat is closed.
+  const streaming = useRef<AbortController | null>(null);
   // Dock (panel + input) stays within half the screen; ~66 px is the input row and padding.
   const { height } = useWindowDimensions();
   const panelMax = Math.max(120, height * 0.5 - 66);
 
   const close = () => {
     chatId.current += 1;
+    streaming.current?.abort();
     target.current = { text: '', done: true };
     setShown(null);
     setMsgs([]);
@@ -82,23 +100,29 @@ export function OravaChat({ user, report }: { user: string; report: HealthReport
     setShown(0);
     setDraft('');
     setMinimized(false);
-    if (!geminiConfigured) return write(answer(q, report), true);
+    const abort = new AbortController();
+    streaming.current = abort;
+    let finished = false;
     try {
-      const turns: ChatTurn[] = history.map((m) => ({
-        role: m.from === 'me' ? 'user' : 'model',
-        text: m.text,
-      }));
-      const reply = await streamGemini(system, turns, (soFar) => write(plainText(soFar)), {
-        user,
-      });
-      write(plainText(reply), true);
+      await streamChat(
+        { month, messages: toMessages(history) },
+        (event) => {
+          if (event.type === 'delta') return write(event.text);
+          finished = true;
+          // `error`: failed after the stream started, so Orava answers offline.
+          write(event.type === 'done' ? event.text : answer(q, report), true);
+        },
+        abort.signal,
+      );
+      if (!finished) write(answer(q, report), true); // the stream ended without an answer
     } catch (e) {
-      if (e instanceof RateLimitError) {
-        write(`I've hit my hourly limit. Ask me again in ${minutesUntil(e.retryAt)}.`, true);
-        return;
-      }
-      console.warn(e);
+      if (abort.signal.aborted) return;
+      const limit = e instanceof ApiError ? e.aiLimit : null;
+      if (limit) return write(limitReply(limit.retryAt), true);
+      if (!isExpectedAiError(e)) console.warn(e);
       write(answer(q, report), true);
+    } finally {
+      if (streaming.current === abort) streaming.current = null;
     }
   };
 

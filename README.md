@@ -91,7 +91,7 @@ apps/
       orava/
         Mascot.tsx              the squirrel in 4 moods (SVG + animations)
         moods.ts                mood colors (the names come from @orava/core)
-        overview.ts             ← Gemini's month overview for the Orava card, cached per month
+        overview.ts             ← the month overview for the Orava card, from the API
       data/
         categories.ts           category icons and tints (the names come from @orava/core)
       screens/
@@ -101,7 +101,7 @@ apps/
         HealthScreen.tsx        Money health
         LoginScreen.tsx         sign-in
       components/               floating Orava, speech bubble, chart, list, header, nav
-      lib/                      API and Gemini calls (move to the server in later sections)
+      lib/                      API calls, sign-in, the AI limit events
       theme.ts                  S-mobiili colors, euro formatting
   server/                       the NestJS API, @orava/server (everything under /api)
     src/
@@ -110,6 +110,8 @@ apps/
       common/                   ZodValidationPipe, the ApiErrorBody exception filter
       health/                   GET /api/health (checks the database)
       db/                       Drizzle schema, connection pool, repositories
+      transactions/             the account, adding and deleting transactions
+      ai/                       ← Gemini: coach prompt, month overviews, the chat (SSE), limits
     Dockerfile                  multi-stage image, built from the repo root
 packages/
   core/                         @orava/core: the Money health engine, pure TypeScript
@@ -123,7 +125,6 @@ packages/
       ahead.ts                  coming up: what the next 3 months leave to spend (keep aside / free)
       growth.ts                 idle money (the Idle money tile and the chat)
       chat.ts                   Ask Orava's offline answers
-      coach.ts                  ← Gemini coach prompt + the user's data as context
       categories.ts             category names, money in/out, transaction types
       moods.ts                  mood names
       signature.ts              fingerprint of a month's data (overview cache key)
@@ -187,14 +188,18 @@ working?") gives a 10-year comparison in today's euros: current account 0.37%, s
 2.57% (Bank of Finland), world equities 3.5% after inflation (UBS Yearbook 2025), inflation 2.5%
 (Statistics Finland).
 
-### Orava's words come from Gemini (`apps/web/src/orava/overview.ts`, `packages/core/src/coach.ts`)
+### Orava's words come from Gemini (`apps/server/src/ai/`)
 
 The Orava card on Home and the Money health hero show Gemini's read of the month: one short
 sentence, a "Good" line and a "Watch" line. There are no hardcoded reactions: every time a
 transaction is added or removed, Gemini looks at the whole state again (score, tiles, where money
-goes, the last 6 months of transactions, peers and Finnish benchmarks). Overviews are cached per
-month, so a month is only asked again when its transactions change; the 10 newest months are
-kept. Ask Orava (the chat at the bottom of Money health) streams its answers from the same
-context. Set `EXPO_PUBLIC_GEMINI_API_KEY` in `apps/web/.env` (see `.env.example`).
+goes, the last 6 months of transactions, peers and Finnish benchmarks). The server builds that
+context from its own data and calls Gemini; the browser only sends a month and the chat messages,
+and never sees the key or the prompt. Overviews are cached on the server per month, so a month is
+only asked again when its transactions change. Ask Orava (the chat at the bottom of Money health)
+streams its answers from the same context. Each user gets 30 AI requests an hour by default
+(`users.ai_hourly_limit` overrides it). The model is Gemini 3.8 Flash; when it's rate-limited
+or overloaded, the request goes to Gemini 3.5 Flash Lite instead. Set `GEMINI_API_KEY` in `apps/server/.env` (see
+`.env.example`); without it, Orava uses its built-in sentences and offline answers.
 
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.

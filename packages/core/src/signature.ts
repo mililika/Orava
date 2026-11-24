@@ -1,5 +1,5 @@
 // A short fingerprint of a month's data, used as the key for cached AI overviews: the web app's
-// overview cache today, the server's from section 06. Pure.
+// overview cache on the server, and the web app's per-session cache. Pure.
 
 import type { Transaction } from './types';
 

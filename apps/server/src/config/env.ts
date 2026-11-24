@@ -21,6 +21,25 @@ export const Env = z
     // The Supabase project's URL (https://<ref>.supabase.co); access tokens are checked against
     // its Auth signing keys.
     SUPABASE_URL: z.url({ protocol: /^https$/ }).transform((url) => url.replace(/\/+$/, '')),
+    // Gemini (Google AI Studio API key). Optional: without it the AI routes answer 503
+    // `ai_unavailable` and everything else works.
+    GEMINI_API_KEY: z
+      .string()
+      .optional()
+      .transform((v) => v?.trim() || undefined),
+    GEMINI_MODEL: z.string().min(1).default('gemini-3.8-flash'),
+    // Asked instead when GEMINI_MODEL is rate-limited (429) or overloaded (503). Empty = none.
+    GEMINI_FALLBACK_MODEL: z
+      .string()
+      .default('gemini-3.5-flash-lite')
+      .transform((v) => v.trim() || undefined),
+    // How long the model thinks before answering. Not every model takes every level; if the API
+    // rejects it, the request is retried without one.
+    GEMINI_THINKING: z.enum(['minimal', 'low', 'medium', 'high']).default('low'),
+    // Gemini requests per user per rolling hour, unless users.ai_hourly_limit says otherwise.
+    AI_HOURLY_LIMIT: z.coerce.number().int().min(0).default(30),
+    // Gemini requests per UTC day across all users: the last line of defence for the bill.
+    AI_DAILY_LIMIT: z.coerce.number().int().min(0).default(2000),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),

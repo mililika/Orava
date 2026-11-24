@@ -1,17 +1,17 @@
-// "You've reached the limit": pops up whenever a Gemini request is blocked by the hourly limit
-// (lib/rateLimit.ts), from the Home overview or from Ask Orava.
+// "You've reached the limit": pops up whenever the server refuses an AI request with 429
+// `ai_limit` (lib/api.ts reports it through lib/aiLimit.ts), from an overview or from Ask Orava.
 
 import { useEffect, useState } from 'react';
 import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { minutesUntil, onLimitReached, type RateLimitError } from '../lib/rateLimit';
+import { type AiLimitHit, minutesUntil, onLimitReached } from '../lib/aiLimit';
 import { Mascot } from '../orava/Mascot';
 import { colors, radius } from '../theme';
 
 const CONTACT = 'mykhailokazymyr@gmail.com';
 
 export function LimitModal() {
-  const [hit, setHit] = useState<RateLimitError | null>(null);
+  const [hit, setHit] = useState<AiLimitHit | null>(null);
   useEffect(() => onLimitReached(setHit), []);
 
   return (
@@ -21,8 +21,8 @@ export function LimitModal() {
           <Mascot mood="worried" size={72} ground={false} />
           <Text style={s.title}>You&apos;ve reached the limit</Text>
           <Text style={s.body}>
-            Sorry, we had to protect our Google credentials, so we had to restrict the usage. This
-            account can ask Orava {hit?.limit ?? 0} times an hour.
+            Sorry, we had to protect our Google credentials, so we had to restrict the usage.{' '}
+            {hit?.message}
           </Text>
           {hit ? (
             <Text style={s.when}>Orava can answer again in {minutesUntil(hit.retryAt)}.</Text>

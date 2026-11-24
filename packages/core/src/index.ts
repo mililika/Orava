@@ -1,5 +1,6 @@
 // @orava/core: the Money health engine. Pure TypeScript (no React, React Native, Node APIs,
-// network or storage), shared by the web app and the server.
+// network or storage), shared by the web app and the server. The AI prompt (coach) is
+// server-only and lives in apps/server/src/ai/.
 //
 //   transactions ──monthlyTotals()──▶ MonthTotals[] ──scoreOf()──▶ Score ──evaluateOrava()──▶ OravaState
 //                                          └── buildHealth() / reportForMonth() ──▶ HealthReport
@@ -9,7 +10,6 @@ export * from './baskets';
 export * from './benchmarks';
 export * from './categories';
 export * from './chat';
-export * from './coach';
 export * from './format';
 export * from './growth';
 export * from './health';
