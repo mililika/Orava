@@ -60,9 +60,12 @@ const SCORE_COLOR: Record<Mood, string> = {
 export function HealthScreen({
   report: latest,
   onBack,
+  onError,
 }: {
   report: HealthReport;
   onBack: () => void;
+  /** Shows a message to the user (MainScreen's toast). */
+  onError: (message: string) => void;
 }) {
   const [info, setInfo] = useState(false);
   const { first, last } = useMemo(() => monthRange(latest.txs), [latest]);
@@ -153,7 +156,7 @@ export function HealthScreen({
 
         <RecurringCard r={report.recurring} />
       </ScrollView>
-      <OravaChat month={month} report={report} />
+      <OravaChat month={month} onError={onError} />
     </KeyboardAvoidingView>
   );
 }

@@ -1,10 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { OverviewDto } from '@orava/contracts';
 
 import type { User } from '../db/users.repository.js';
-import { AI_MODEL, type AiModel, aiUnavailable } from './ai-model.js';
 import { AiLimitsService } from './ai-limits.service.js';
+import { aiUnavailable } from './ai-unavailable.js';
 import { plainText } from './coach.js';
+import { GeminiService } from './gemini.service.js';
 import { MonthContextService } from './month-context.service.js';
 import { OVERVIEW_SCHEMA, overviewPrompt } from './overview.js';
 
@@ -24,7 +25,7 @@ export class OverviewService {
   private readonly inflight = new Map<string, Promise<OverviewDto>>();
 
   constructor(
-    @Inject(AI_MODEL) private readonly model: AiModel,
+    private readonly model: GeminiService,
     private readonly limits: AiLimitsService,
     private readonly months: MonthContextService,
   ) {}

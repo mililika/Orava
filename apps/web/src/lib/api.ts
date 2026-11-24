@@ -107,19 +107,16 @@ async function request<T>(
   return __DEV__ ? schema.parse(json) : (json as T);
 }
 
-/** The signed-in user's balance and transactions, newest first. 401 when signed out. */
 export function getAccount(): Promise<Account> {
   return request('GET', '/account', AccountResponse);
 }
 
-/** Saves a new transaction and returns it as saved: the server dates and types it. */
 export function createTransaction(
   body: CreateTransactionRequest,
 ): Promise<CreateTransactionResponse> {
   return request('POST', '/transactions', CreateTransactionResponse, body);
 }
 
-/** Deletes one of the user's transactions. 404 if it isn't theirs. */
 export function deleteTransaction(id: string): Promise<void> {
   return request('DELETE', `/transactions/${encodeURIComponent(id)}`, NO_CONTENT);
 }
@@ -135,15 +132,22 @@ export async function getOverview(month: string): Promise<OverviewDto> {
 }
 
 /**
- * Asks Orava. `onEvent` gets each server-sent event as it arrives; resolves when the stream ends.
- * Errors before the stream starts (limit, no AI, network) throw ApiError.
+ * Asks Orava. `onText` gets the reply so far as it streams in; resolves with the whole reply.
+ * Throws ApiError if there's no reply: before the stream (limit, no AI, network), an `error`
+ * event, or a stream that ends without `done`.
  */
 export async function streamChat(
   body: ChatRequest,
-  onEvent: (event: ChatEvent) => void,
+  onText: (soFar: string) => void,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<string> {
   const res = await send('POST', '/ai/chat', body, signal);
+  let reply: string | null = null;
+  const onEvent = (event: ChatEvent) => {
+    if (event.type === 'delta') onText(event.text);
+    else if (event.type === 'done') reply = event.text;
+    else throw new ApiError(502, 'internal', event.message);
+  };
   // Each event is a "data: {json}" line followed by a blank line; one can span network chunks.
   const take = (lines: string[]) => {
     for (const line of lines) {
@@ -159,10 +163,10 @@ export async function streamChat(
     }
   };
   const reader = res.body?.getReader();
-  if (!reader) return take((await res.text()).split(/\r?\n/));
+  if (!reader) take((await res.text()).split(/\r?\n/));
   const decoder = new TextDecoder();
   let buffer = '';
-  for (;;) {
+  while (reader) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -170,5 +174,7 @@ export async function streamChat(
     buffer = lines.pop() ?? '';
     take(lines);
   }
-  take([buffer + decoder.decode()]);
+  if (reader) take([buffer + decoder.decode()]);
+  if (reply === null) throw new ApiError(502, 'internal', 'The reply ended early.');
+  return reply;
 }

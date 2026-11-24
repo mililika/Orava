@@ -50,7 +50,6 @@ export const CATEGORIES: Record<Category, CategoryInfo> = {
   'Other Income': { name: 'Other income', income: true },
 };
 
-/** True for the categories in CATEGORY_LIST, so a database value can be narrowed safely. */
 export function isCategory(category: string): category is Category {
   return Object.prototype.hasOwnProperty.call(CATEGORIES, category);
 }
@@ -75,7 +74,6 @@ export const EXPENSE_CATEGORIES: Category[] = [
 ];
 export const INCOME_CATEGORIES: Category[] = ['Salary', 'Other Income'];
 
-/** Transaction type column value for a new transaction in this category. */
 export function typeFor(category: string) {
   if (category === 'Salary') return 'salary';
   if (category === 'Other Income') return 'other_income';

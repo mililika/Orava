@@ -31,10 +31,8 @@ export const ApiErrorBody = z.object({
 });
 export type ApiErrorBody = z.infer<typeof ApiErrorBody>;
 
-/** A calendar month, YYYY-MM. */
 export const Month = z.string().regex(/^\d{4}-\d{2}$/, 'Expected a month as YYYY-MM');
 export type Month = z.infer<typeof Month>;
 
-/** `GET /api/health`. */
 export const HealthResponse = z.object({ ok: z.literal(true) });
 export type HealthResponse = z.infer<typeof HealthResponse>;

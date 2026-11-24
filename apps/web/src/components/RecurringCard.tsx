@@ -1,5 +1,3 @@
-// "Regular payments" dropdown: the payments that leave every month, found by findRecurring() in @orava/core.
-
 import { StyleSheet, Text, View } from 'react-native';
 
 import { categoryInfo } from '../data/categories';

@@ -1,5 +1,3 @@
-// Round category badge, as in S-mobiili's transaction list.
-
 import { View } from 'react-native';
 
 import { categoryInfo } from '../data/categories';

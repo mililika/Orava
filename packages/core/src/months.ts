@@ -81,7 +81,6 @@ export function basketSums(byCategory: Record<string, number>, mult: Multipliers
   return s;
 }
 
-/** Average spending per category over the given months. */
 export function averageByCategory(months: MonthTotals[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const m of months) {

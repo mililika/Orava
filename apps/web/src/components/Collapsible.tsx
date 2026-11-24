@@ -16,9 +16,7 @@ export function Collapsible({
 }: {
   icon?: IconName;
   title: string;
-  /** One line under the title, visible while closed. */
   summary?: string;
-  /** Short value on the right of the header, e.g. a total. */
   right?: string;
   initiallyOpen?: boolean;
   children: ReactNode;

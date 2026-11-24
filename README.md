@@ -124,7 +124,6 @@ packages/
       recurring.ts              regular payments detection
       ahead.ts                  coming up: what the next 3 months leave to spend (keep aside / free)
       growth.ts                 idle money (the Idle money tile and the chat)
-      chat.ts                   Ask Orava's offline answers
       categories.ts             category names, money in/out, transaction types
       moods.ts                  mood names
       signature.ts              fingerprint of a month's data (overview cache key)
@@ -200,6 +199,6 @@ only asked again when its transactions change. Ask Orava (the chat at the bottom
 streams its answers from the same context. Each user gets 30 AI requests an hour by default
 (`users.ai_hourly_limit` overrides it). The model is Gemini 3.8 Flash; when it's rate-limited
 or overloaded, the request goes to Gemini 3.5 Flash Lite instead. Set `GEMINI_API_KEY` in `apps/server/.env` (see
-`.env.example`); without it, Orava uses its built-in sentences and offline answers.
+`.env.example`); without it, Orava uses its built-in sentences and the chat shows a "try again later" toast.
 
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.

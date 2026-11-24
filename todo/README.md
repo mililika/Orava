@@ -100,7 +100,7 @@ runs with `npm run web` as before. There's no local database.
 Do the sections in order. Each one ends with the app working end to end, so it can be merged on
 its own. **Sections 01–07 need no cloud hosting**: everything runs locally. The only outside
 things needed before section 08 are a free Gemini API key from Google AI Studio (section 06; the
-app works without it, just with offline answers) and the existing GitHub repo (section 07).
+app works without it, just without the AI chat and overviews) and the existing GitHub repo (section 07).
 Deployment comes last.
 
 | # | File | Result |

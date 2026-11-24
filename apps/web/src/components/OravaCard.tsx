@@ -26,9 +26,7 @@ export function OravaCard({
   score: number | null;
   /** Gemini's summary of the month; empty while it loads. */
   message?: string;
-  /** Gemini is still writing the overview. */
   thinking?: boolean;
-  /** Gemini's good / watch lines for the month, under the message. */
   insight?: OverviewDto | null;
   onOpen: () => void;
 }) {

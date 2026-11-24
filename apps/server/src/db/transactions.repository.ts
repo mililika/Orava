@@ -6,7 +6,6 @@ import { DB, type Db } from './db.js';
 import { transactions, users } from './schema.js';
 import type { User } from './users.repository.js';
 
-/** Deleted transactions are hidden everywhere. */
 const notDeleted = isNull(transactions.deletedAt);
 
 /** The user's rows from one source: loaded with the data (`seed`) or added in the app (`user`). */
@@ -40,7 +39,6 @@ export class TransactionsRepository {
     return { txs, balance };
   }
 
-  /** The user's transactions, newest first, without deleted ones. */
   async list(userId: string): Promise<Transaction[]> {
     const rows = await this.db
       .select(txColumns)

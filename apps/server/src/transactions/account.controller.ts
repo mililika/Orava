@@ -9,7 +9,6 @@ import type { User } from '../db/users.repository.js';
 export class AccountController {
   constructor(private readonly transactions: TransactionsRepository) {}
 
-  /** The signed-in user's balance and transactions, newest first. */
   @Get()
   async get(@CurrentUser() user: User): Promise<AccountResponse> {
     return { username: user.username, ...(await this.transactions.accountOf(user)) };

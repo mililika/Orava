@@ -9,7 +9,6 @@ export * from './ahead';
 export * from './baskets';
 export * from './benchmarks';
 export * from './categories';
-export * from './chat';
 export * from './format';
 export * from './growth';
 export * from './health';

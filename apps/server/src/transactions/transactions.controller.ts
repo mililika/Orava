@@ -58,7 +58,6 @@ export class TransactionsController {
     return { tx };
   }
 
-  /** Soft-deletes one of the user's transactions. 404 for anyone else's. */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(

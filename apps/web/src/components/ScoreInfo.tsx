@@ -1,5 +1,3 @@
-// The dropdown behind the ⓘ next to the Money health score: how each part is scored.
-
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { Score } from '@orava/core';

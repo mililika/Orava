@@ -114,7 +114,7 @@ export function MainScreen({ account, onLogout }: { account: Account; onLogout: 
             orava={headerOrava}
           />
         ) : screen === 'health' ? (
-          <HealthScreen report={report} onBack={() => setScreen('home')} />
+          <HealthScreen report={report} onBack={() => setScreen('home')} onError={show} />
         ) : (
           <>
             <AppHeader

@@ -1,5 +1,3 @@
-// S-mobiili-style home: account balance and the transaction list.
-
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { OravaCard } from '../components/OravaCard';

@@ -1,8 +1,7 @@
 // "Ask Orava": an input pinned to the bottom of Money health. Answers open in a panel above it.
 // Answers come from Gemini through our server (POST /api/ai/chat), which adds the user's data for
-// the open month. If the server has no AI or the call fails, the offline keyword answers
-// (@orava/core's chat.ts) step in. Replies stream in as server-sent events, and the bubble types
-// them out.
+// the open month. If the call fails, `onError` shows a toast and the question goes back in the
+// input. Replies stream in as server-sent events, and the bubble types them out.
 // The panel never takes more than half the screen. Minimize hides it and keeps the conversation
 // (a slim bar brings it back); close ends it, so the next question starts a new chat.
 
@@ -18,7 +17,6 @@ import {
 } from 'react-native';
 
 import { type ChatMessage, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_MESSAGES } from '@orava/contracts';
-import { answer, type HealthReport, SUGGESTIONS } from '@orava/core';
 
 import { minutesUntil } from '../lib/aiLimit';
 import { ApiError, isExpectedAiError, streamChat } from '../lib/api';
@@ -29,6 +27,16 @@ interface Msg {
   from: 'me' | 'orava';
   text: string;
 }
+
+const SUGGESTIONS = [
+  'How much can I spend on presents?',
+  'What can I cut next month to save?',
+  'How is this month going?',
+  'What can I spend this week?',
+  'Why is my score like this?',
+  'What’s coming up?',
+  'Is my money working?',
+];
 
 const limitReply = (retryAt: number) =>
   `I've hit my limit. Ask me again in ${minutesUntil(retryAt)}.`;
@@ -43,7 +51,14 @@ const toMessages = (msgs: Msg[]): ChatMessage[] =>
       text: m.text.slice(0, MAX_CHAT_MESSAGE_LENGTH),
     }));
 
-export function OravaChat({ month, report }: { month: string; report: HealthReport }) {
+export function OravaChat({
+  month,
+  onError,
+}: {
+  month: string;
+  /** Shows a message to the user (the screen's toast). */
+  onError: (message: string) => void;
+}) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
   const [focused, setFocused] = useState(false);
@@ -57,7 +72,7 @@ export function OravaChat({ month, report }: { month: string; report: HealthRepo
   const [minimized, setMinimized] = useState(false);
   // Bumped when a chat is closed, so a reply still streaming into it is dropped.
   const chatId = useRef(0);
-  // Cancels the reply being streamed when the chat is closed.
+  // Cancels the reply being streamed when the chat is closed or the screen is left.
   const streaming = useRef<AbortController | null>(null);
   // Dock (panel + input) stays within half the screen; ~66 px is the input row and padding.
   const { height } = useWindowDimensions();
@@ -71,6 +86,9 @@ export function OravaChat({ month, report }: { month: string; report: HealthRepo
     setMsgs([]);
     setMinimized(false);
   };
+
+  // Leaving the screen cancels a reply still streaming.
+  useEffect(() => () => streaming.current?.abort(), []);
 
   // Typewriter: move `shown` toward what has arrived, a little faster when far behind.
   useEffect(() => {
@@ -102,25 +120,21 @@ export function OravaChat({ month, report }: { month: string; report: HealthRepo
     setMinimized(false);
     const abort = new AbortController();
     streaming.current = abort;
-    let finished = false;
     try {
-      await streamChat(
-        { month, messages: toMessages(history) },
-        (event) => {
-          if (event.type === 'delta') return write(event.text);
-          finished = true;
-          // `error`: failed after the stream started, so Orava answers offline.
-          write(event.type === 'done' ? event.text : answer(q, report), true);
-        },
-        abort.signal,
-      );
-      if (!finished) write(answer(q, report), true); // the stream ended without an answer
+      const reply = await streamChat({ month, messages: toMessages(history) }, write, abort.signal);
+      write(reply, true);
     } catch (e) {
       if (abort.signal.aborted) return;
       const limit = e instanceof ApiError ? e.aiLimit : null;
       if (limit) return write(limitReply(limit.retryAt), true);
       if (!isExpectedAiError(e)) console.warn(e);
-      write(answer(q, report), true);
+      if (id !== chatId.current) return;
+      // No reply: drop the question and put it back in the input, so it can be sent again.
+      target.current = { text: '', done: true };
+      setShown(null);
+      setMsgs(msgs);
+      setDraft((d) => d || q);
+      onError('Failed to access the AI model, try again later.');
     } finally {
       if (streaming.current === abort) streaming.current = null;
     }

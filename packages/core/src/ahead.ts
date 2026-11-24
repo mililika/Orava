@@ -116,7 +116,6 @@ function titleOf(event: string | undefined, category: string) {
   }
 }
 
-/** Short name for one bump, e.g. Christmas groceries → "food". */
 function labelOf(event: string | undefined, category: string) {
   if (event === 'Christmas') {
     if (['Lifestyle', 'Home & Tech'].includes(category)) return 'presents';
@@ -233,7 +232,7 @@ export function aheadOf(all: MonthTotals[], balance: number): Ahead {
 }
 
 /** Forecasts are rough: show them to the nearest €10. */
-export const round10 = (n: number) => Math.round(n / 10) * 10;
+const round10 = (n: number) => Math.round(n / 10) * 10;
 const money = (n: number) => `€${round10(Math.abs(n)).toLocaleString('en-GB')}`;
 const list = (xs: string[]) =>
   xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;

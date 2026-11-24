@@ -58,7 +58,6 @@ export function SectionHead({
 }: {
   title: string;
   right?: string;
-  /** A round plus button at the top right of the section. */
   action?: { label: string; onPress: () => void };
 }) {
   return (

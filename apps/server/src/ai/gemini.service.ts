@@ -3,7 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AppConfig } from '../config/app-config.js';
 import type { ChatMessage } from '@orava/contracts';
 
-import type { AiModel, AskOptions } from './ai-model.js';
+export interface AskOptions {
+  /** OpenAPI-style response schema: the reply is JSON text matching it. */
+  schema?: object;
+  signal?: AbortSignal;
+}
 
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 /** Gemini's answers that mean "too busy for this model right now": rate-limited or overloaded. */
@@ -32,7 +36,7 @@ const textOf = (data: GeminiResponse | null) =>
  * (429) or it's overloaded (503), asks GEMINI_FALLBACK_MODEL instead.
  */
 @Injectable()
-export class GeminiService implements AiModel {
+export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
   private readonly key: string | undefined;
   /** The model to ask, then the one to ask when Gemini rate-limits it. */

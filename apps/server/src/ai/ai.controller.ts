@@ -1,13 +1,14 @@
-import { Body, Controller, Get, Inject, Logger, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Query, Res } from '@nestjs/common';
 import { ChatEvent, ChatRequest, OverviewQuery, type OverviewResponse } from '@orava/contracts';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../auth/decorators.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import type { User } from '../db/users.repository.js';
-import { AI_MODEL, type AiModel, aiUnavailable } from './ai-model.js';
 import { AiLimitsService } from './ai-limits.service.js';
+import { aiUnavailable } from './ai-unavailable.js';
 import { plainText } from './coach.js';
+import { GeminiService } from './gemini.service.js';
 import { MonthContextService } from './month-context.service.js';
 import { OverviewService } from './overview.service.js';
 
@@ -16,7 +17,7 @@ export class AiController {
   private readonly logger = new Logger(AiController.name);
 
   constructor(
-    @Inject(AI_MODEL) private readonly model: AiModel,
+    private readonly model: GeminiService,
     private readonly limits: AiLimitsService,
     private readonly months: MonthContextService,
     private readonly overviews: OverviewService,
