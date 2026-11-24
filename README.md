@@ -199,6 +199,7 @@ only asked again when its transactions change. Ask Orava (the chat at the bottom
 streams its answers from the same context. Each user gets 30 AI requests an hour by default
 (`users.ai_hourly_limit` overrides it). The model is Gemini 3.8 Flash; when it's rate-limited
 or overloaded, the request goes to Gemini 3.5 Flash Lite instead. Set `GEMINI_API_KEY` in `apps/server/.env` (see
-`.env.example`); without it, Orava uses its built-in sentences and the chat shows a "try again later" toast.
+`.env.example`); without it, Orava uses its built-in sentences and the chat input is grayed out with a
+"No Gemini connection" warning (the same as when the AI limit is reached).
 
 "Discretionary spending" = restaurants, fast food, lifestyle, entertainment, travel.

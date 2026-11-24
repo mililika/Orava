@@ -1,7 +1,9 @@
 // "Ask Orava": an input pinned to the bottom of Money health. Answers open in a panel above it.
 // Answers come from Gemini through our server (POST /api/ai/chat), which adds the user's data for
-// the open month. If the call fails, `onError` shows a toast and the question goes back in the
-// input. Replies stream in as server-sent events, and the bubble types them out.
+// the open month. If the call fails, the question goes back in the input and `onError` shows a
+// toast. With no Gemini key on the server or the AI limit reached, the input is grayed out and a
+// warning sign says why (the limit also pops up LimitModal). Replies stream in as server-sent
+// events, and the bubble types them out.
 // The panel never takes more than half the screen. Minimize hides it and keeps the conversation
 // (a slim bar brings it back); close ends it, so the next question starts a new chat.
 
@@ -18,8 +20,8 @@ import {
 
 import { type ChatMessage, MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_MESSAGES } from '@orava/contracts';
 
-import { minutesUntil } from '../lib/aiLimit';
-import { ApiError, isExpectedAiError, streamChat } from '../lib/api';
+import { type AiBlock, useAiBlocked } from '../lib/aiStatus';
+import { isExpectedAiError, streamChat } from '../lib/api';
 import { colors, radius } from '../theme';
 import { Icon } from './Icon';
 
@@ -38,8 +40,35 @@ const SUGGESTIONS = [
   'Is my money working?',
 ];
 
-const limitReply = (retryAt: number) =>
-  `I've hit my limit. Ask me again in ${minutesUntil(retryAt)}.`;
+const BLOCKED_LABEL: Record<AiBlock, string> = {
+  unavailable: 'No Gemini connection',
+  limited: 'Limit is reached',
+};
+
+/** The warning sign on the grayed-out input; hover or tap shows why. */
+function BlockedBadge({ label }: { label: string }) {
+  const [showTip, setShowTip] = useState(false);
+  return (
+    <>
+      <Pressable
+        onHoverIn={() => setShowTip(true)}
+        onHoverOut={() => setShowTip(false)}
+        onPress={() => setShowTip((t) => !t)}
+        role="button"
+        accessibilityLabel={label}
+        hitSlop={8}
+        style={s.badge}
+      >
+        <Icon name="warning" size={14} color={colors.warn} strokeWidth={2.2} />
+      </Pressable>
+      {showTip ? (
+        <View style={s.tip} pointerEvents="none">
+          <Text style={s.tipText}>{label}</Text>
+        </View>
+      ) : null}
+    </>
+  );
+}
 
 /** The conversation as the server takes it: the newest messages, each cut to the allowed length. */
 const toMessages = (msgs: Msg[]): ChatMessage[] =>
@@ -62,6 +91,8 @@ export function OravaChat({
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
   const [focused, setFocused] = useState(false);
+  // Why Orava can't be asked now (no Gemini key, limit reached); BlockedBadge says it by the input.
+  const blocked = useAiBlocked();
   const list = useRef<ComponentRef<typeof ScrollView>>(null);
 
   // The reply being written is the last message. `shown` is how many of its characters are on
@@ -69,6 +100,7 @@ export function OravaChat({
   const [shown, setShown] = useState<number | null>(null);
   const target = useRef({ text: '', done: true });
   const busy = shown !== null;
+  const off = busy || !!blocked;
   const [minimized, setMinimized] = useState(false);
   // Bumped when a chat is closed, so a reply still streaming into it is dropped.
   const chatId = useRef(0);
@@ -106,7 +138,7 @@ export function OravaChat({
 
   const send = async (text: string) => {
     const q = text.trim();
-    if (!q || busy) return;
+    if (!q || busy || blocked) return;
     const history: Msg[] = [...msgs, { from: 'me', text: q }];
     const id = chatId.current;
     const write = (reply: string, done = false) => {
@@ -124,16 +156,15 @@ export function OravaChat({
       const reply = await streamChat({ month, messages: toMessages(history) }, write, abort.signal);
       write(reply, true);
     } catch (e) {
-      if (abort.signal.aborted) return;
-      const limit = e instanceof ApiError ? e.aiLimit : null;
-      if (limit) return write(limitReply(limit.retryAt), true);
-      if (!isExpectedAiError(e)) console.warn(e);
-      if (id !== chatId.current) return;
+      if (abort.signal.aborted || id !== chatId.current) return;
       // No reply: drop the question and put it back in the input, so it can be sent again.
       target.current = { text: '', done: true };
       setShown(null);
       setMsgs(msgs);
       setDraft((d) => d || q);
+      // No key or the limit: the grayed-out input (and LimitModal) already say why.
+      if (isExpectedAiError(e)) return;
+      console.warn(e);
       onError('Failed to access the AI model, try again later.');
     } finally {
       if (streaming.current === abort) streaming.current = null;
@@ -201,7 +232,7 @@ export function OravaChat({
             })}
           </ScrollView>
         </View>
-      ) : focused ? (
+      ) : focused && !blocked ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -222,24 +253,28 @@ export function OravaChat({
       ) : null}
 
       <View style={s.inputRow}>
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={() => send(draft)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 150)}
-          placeholder="Ask Orava…"
-          placeholderTextColor={colors.faint}
-          returnKeyType="send"
-          style={s.input}
-          accessibilityLabel="Ask Orava a question"
-        />
+        <View style={s.inputWrap}>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={() => send(draft)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
+            editable={!blocked}
+            placeholder="Ask Orava…"
+            placeholderTextColor={colors.faint}
+            returnKeyType="send"
+            style={[s.input, blocked && s.dimmed]}
+            accessibilityLabel="Ask Orava a question"
+          />
+          {blocked ? <BlockedBadge label={BLOCKED_LABEL[blocked]} /> : null}
+        </View>
         <Pressable
           onPress={() => send(draft)}
-          disabled={busy}
+          disabled={off}
           role="button"
           accessibilityLabel="Send"
-          style={({ pressed }) => [s.send, (pressed || busy) && { opacity: 0.6 }]}
+          style={({ pressed }) => [s.send, (pressed || off) && { opacity: 0.6 }]}
         >
           <Icon name="chevron" color="#fff" size={20} strokeWidth={2.4} />
         </Pressable>
@@ -288,8 +323,8 @@ const s = StyleSheet.create({
   },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.green },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inputWrap: { flex: 1 },
   input: {
-    flex: 1,
     height: 42,
     borderRadius: radius.pill,
     backgroundColor: colors.mint,
@@ -297,6 +332,31 @@ const s = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
   },
+  dimmed: { opacity: 0.5 },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.warnBg,
+    borderWidth: 1,
+    borderColor: colors.warn,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tip: {
+    position: 'absolute',
+    bottom: '100%',
+    right: 0,
+    marginBottom: 6,
+    backgroundColor: colors.night,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  tipText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   send: {
     width: 42,
     height: 42,

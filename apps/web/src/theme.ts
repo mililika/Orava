@@ -18,6 +18,7 @@ export const colors = {
   neg: '#b3261e',
   negBg: '#fde8e6',
   outside: '#dfe7e0', // around the phone frame on web
+  night: '#1d2a21', // toasts and tooltips (white text)
 
   // Mascot
   brown: '#b5733a',

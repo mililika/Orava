@@ -50,6 +50,7 @@ export const CATEGORIES: Record<Category, CategoryInfo> = {
   'Other Income': { name: 'Other income', income: true },
 };
 
+/** True for the categories in CATEGORY_LIST, so a database value can be narrowed safely. */
 export function isCategory(category: string): category is Category {
   return Object.prototype.hasOwnProperty.call(CATEGORIES, category);
 }

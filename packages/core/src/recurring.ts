@@ -129,6 +129,7 @@ export function findRecurring(txs: Transaction[]): RecurringSummary {
   };
 }
 
+/** The `n` months before `month` (YYYY-MM), oldest first. */
 export function previousMonths(month: string, n: number) {
   if (!month) return [];
   const [y, m] = month.split('-').map(Number);

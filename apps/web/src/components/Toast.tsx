@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { colors } from '../theme';
+
 export function useToast() {
   const [text, setText] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -36,7 +38,7 @@ const s = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 84,
-    backgroundColor: '#1d2a21',
+    backgroundColor: colors.night,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,

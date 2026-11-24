@@ -17,7 +17,7 @@ import type { Account } from '@orava/core';
 // expo/fetch streams response bodies (the chat) on every platform; on web it's the browser's fetch.
 import { fetch } from 'expo/fetch';
 
-import { reportLimit } from './aiLimit';
+import { reportLimit, reportUnavailable } from './aiStatus';
 import { accessToken, signOut } from './auth';
 
 /** Any zod schema from @orava/contracts (zod itself isn't a dependency of the web app). */
@@ -91,6 +91,8 @@ async function send(
   const error = new ApiError(res.status, code, message, details);
   // Orava's AI limit: LimitModal shows the server's message and when the user can ask again.
   if (error.aiLimit) reportLimit({ message, retryAt: error.aiLimit.retryAt });
+  // No Gemini key on the server: the chat grays out.
+  if (code === 'ai_unavailable') reportUnavailable();
   throw error;
 }
 
@@ -107,16 +109,19 @@ async function request<T>(
   return __DEV__ ? schema.parse(json) : (json as T);
 }
 
+/** The signed-in user's balance and transactions, newest first. 401 when signed out. */
 export function getAccount(): Promise<Account> {
   return request('GET', '/account', AccountResponse);
 }
 
+/** Saves a new transaction and returns it as saved: the server dates and types it. */
 export function createTransaction(
   body: CreateTransactionRequest,
 ): Promise<CreateTransactionResponse> {
   return request('POST', '/transactions', CreateTransactionResponse, body);
 }
 
+/** Deletes one of the user's transactions. 404 if it isn't theirs. */
 export function deleteTransaction(id: string): Promise<void> {
   return request('DELETE', `/transactions/${encodeURIComponent(id)}`, NO_CONTENT);
 }

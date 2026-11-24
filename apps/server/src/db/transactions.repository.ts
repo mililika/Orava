@@ -39,6 +39,7 @@ export class TransactionsRepository {
     return { txs, balance };
   }
 
+  /** The user's transactions, newest first, without deleted ones. */
   async list(userId: string): Promise<Transaction[]> {
     const rows = await this.db
       .select(txColumns)

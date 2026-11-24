@@ -1,12 +1,15 @@
 // "You've reached the limit": pops up whenever the server refuses an AI request with 429
-// `ai_limit` (lib/api.ts reports it through lib/aiLimit.ts), from an overview or from Ask Orava.
+// `ai_limit` (lib/api.ts reports it through lib/aiStatus.ts), from an overview or from Ask Orava.
 
 import { useEffect, useState } from 'react';
 import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type AiLimitHit, minutesUntil, onLimitReached } from '../lib/aiLimit';
+import { type AiLimitHit, onLimitReached } from '../lib/aiStatus';
 import { Mascot } from '../orava/Mascot';
 import { colors, radius } from '../theme';
+
+/** "5 min" until `at` (at least "1 min"). */
+const minutesUntil = (at: number) => `${Math.max(1, Math.ceil((at - Date.now()) / 60000))} min`;
 
 const CONTACT = 'mykhailokazymyr@gmail.com';
 
